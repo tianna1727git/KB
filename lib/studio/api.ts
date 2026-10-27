@@ -1,3 +1,4 @@
+import libraryFiles from './library-data.json';
 import {splitMarkdown,coverage,rank,canUse,citationCheck} from './knowledge.mjs';
 import {agentInfo,modelJSON,messages} from './agent.mjs';
 type R=Record<string,any>;
@@ -18,6 +19,13 @@ export async function api(req:Request,env:any){try{
  async function usable(){const ds=await docs();return (await list('chunk')).filter((k:R)=>canUse(k,ds));}
  async function taskView(t:R){const ds=await docs(),ks=await list('chunk');return {...t,stale:(t.evidence||[]).filter((s:R)=>{const k=ks.find((x:R)=>x.id===s.id);return !k||k.revision!==s.revision||!canUse(k,ds);}).map((s:R)=>s.ref)};}
  if(req.method==='GET'){
+ if(action==='library'){
+ if(email.toLowerCase()!=='tianna1727@gmail.com'){if(path[1])fail('资料不存在',404);return json({files:[],total:0});}
+ if(!path[1])return json({files:(await list('library')).map(({fileKey,...f}:R)=>f),total:libraryFiles.length});
+ const f=await get(path[1],'library'),stored=await env.BUCKET.get(f.fileKey);if(!stored)fail('原文件不存在',404);
+ if(path[2]==='download')return new Response(stored.body,{headers:{'Content-Type':'text/markdown;charset=utf-8','Content-Disposition':"attachment; filename*=UTF-8''"+encodeURIComponent(f.name),'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
+ return json({...f,markdown:await stored.text()});
+ }
  if(action==='state')return json({documents:await docs(),chunks:await list('chunk'),tasks:await list('task'),agents:agentInfo,user:{id:uid,email,name:email.split('@')[0]},config:{model:!!env.AI_URL&&!!env.AI_MODEL,semantic:false}});
  if(action==='document'){const d=await get(path[1],'document');return json({...d,chunks:(await list('chunk')).filter((k:R)=>k.docId===d.id&&k.state!=='excluded')});}
  if(action==='task'){let t=await get(path[1],'task');if(t.state==='running'&&Date.now()-Date.parse(t.updated)>180000)t=await save(t,{error:'上次执行中断，请重试当前步骤。'},'failed');return json(await taskView(t));}
@@ -31,6 +39,18 @@ export async function api(req:Request,env:any){try{
  const d=await create('document',{name:file.name,markdown,hash:digest,fileKey,category,purpose,source,region,effective,expires,external:form.get('external')==='true',coverage:true,events:[{name:'Markdown上传',state:'complete',time:now()},{name:'结构切片与原文比对',state:'complete',time:now()},{name:'风险确认',state:'waiting'}]},'review');
  for(const c of slices)await create('chunk',{...c,docId:d.id,docRevision:d.revision,category,purpose,region,external:d.external,keywords:[],originalBody:c.body},'pending');return json({document:d,count:slices.length});}
  const b:any=await req.json();
+ if(action==='libraryImport'){
+ if(email.toLowerCase()!=='tianna1727@gmail.com')fail('无权导入此资料集',403);
+ const offset=Number(b.offset||0);if(!Number.isInteger(offset)||offset<0||offset>libraryFiles.length)fail('批次无效');
+ const batch=libraryFiles.slice(offset,offset+10);let added=0;
+ for(const {markdown,...f} of batch){
+ const rid='library-'+uid+'-'+f.id;const exists=await env.DB.prepare('SELECT id FROM studio_records WHERE id=? AND owner=?').bind(rid,uid).first();if(exists)continue;
+ const fileKey='library/'+uid+'/'+f.id+'.md';await env.BUCKET.put(fileKey,markdown,{httpMetadata:{contentType:'text/markdown;charset=utf-8'}});const t=now();
+ await env.DB.prepare('INSERT OR IGNORE INTO studio_records(id,kind,owner,state,revision,payload,created,updated) VALUES(?,?,?,?,1,?,?,?)').bind(rid,'library',uid,'stored',JSON.stringify({...f,fileKey}),t,t).run();added++;
+ }
+ return json({added,next:Math.min(offset+10,libraryFiles.length),total:libraryFiles.length});
+ }
+
  if(action==='mergeChunk'){
  const k=await get(b.id,'chunk');if(k.state!=='pending'||k.revision!==b.revision)fail('只能合并当前待确认版本');const all=(await list('chunk')).filter((x:R)=>x.docId===k.docId&&x.state!=='excluded').sort((a:R,b:R)=>a.order-b.order),next=all[all.findIndex((x:R)=>x.id===k.id)+1];if(!next||next.state!=='pending'||k.end!==next.start)fail('下一条不存在、已确认或来源不连续');const d=await get(k.docId,'document');const originalBody=d.markdown.slice(k.start,next.end),body=!k.edited&&!next.edited?originalBody:k.body+next.body;
  const merged=await create('chunk',{...k,title:next.title,body,originalBody,start:k.start,end:next.end,heading:next.heading,risks:[...new Set([...k.risks,...next.risks,'人工合并，请核对主题及条件完整性'])]},'pending');await save(k,{supersededBy:merged.id},'excluded');await save(next,{supersededBy:merged.id},'excluded');return json({id:merged.id});}

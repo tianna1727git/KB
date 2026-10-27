@@ -7,7 +7,7 @@ const worker = {
   fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
     if(new URL(request.url).pathname.startsWith('/api/studio/')){
       // Synthetic identity for the isolated local preview only. Vite removes this branch from production.
-      if(import.meta.env.DEV){const headers=new Headers(request.headers);headers.set('oai-authenticated-user-id','studio-local-preview');headers.set('oai-authenticated-user-email','preview@sites.test');request=new Request(request,{headers});}
+      if(import.meta.env.DEV){const headers=new Headers(request.headers);headers.set('oai-authenticated-user-id','studio-local-preview');headers.set('oai-authenticated-user-email','tianna1727@gmail.com');request=new Request(request,{headers});}
       return api(request,env);
     }
     let binding = ctx.props?.CONNECTORS;

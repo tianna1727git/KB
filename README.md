@@ -62,3 +62,9 @@ node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1
 - `tests/`：知识处理单元测试及完整API流程集成测试。
 
 数据库/R2仅存放在运行环境，上传资料、文章、密钥与本地测试状态不会提交到仓库。
+
+## 资料库
+
+新增独立一级菜单，保存 ProductMarketingChina - 文档_MD.7z 中的 160 份 UTF-8 Markdown（1,829,040 字节），保留文件名及相对目录。原文在 R2，元数据在 D1 的 `library` 记录中；与已审核知识切片分开，不自动用于写作。支持文件名/目录搜索、目录筛选、阅读、原文和下载。附带图片与其他附件本期未导入。
+
+服务端导入清单 `lib/studio/library-data.json` 为此资料集的初始化源，不放入 public；仅站点所有者邮箱可以导入或读取此资料集。`POST /api/studio/libraryImport` 按 10 份分批、确定性记录 ID 防重复，可中断续跑。资料库首次打开时可补齐初始化；导入成功后日常读取来自 D1/R2。现有资料和任务不会被修改。
