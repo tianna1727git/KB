@@ -1,3 +1,4 @@
+import {ingestionAPI} from './ingestion-api';
 import {classifyKnowledge,relatedKnowledge,topicQueries} from './knowledge-model.mjs';
 import {parseUpload} from './parse-upload';
 import libraryFiles from './library-data.json';
@@ -17,6 +18,7 @@ export async function api(req:Request,env:any){try{
  async function create(kind:string,p:R,state='draft'){const rid=id(),t=now();await env.DB.prepare('INSERT INTO studio_records(id,kind,owner,state,revision,payload,created,updated) VALUES(?,?,?,?,1,?,?,?)').bind(rid,kind,uid,state,JSON.stringify(p),t,t).run();return get(rid);}
  async function save(r:R,p:R,state=r.state){const res=await env.DB.prepare('UPDATE studio_records SET payload=?,state=?,revision=revision+1,updated=? WHERE id=? AND owner=? AND revision=?').bind(JSON.stringify({...r,...p}),state,now(),r.id,uid,r.revision).run();if(res.meta.changes!==1)fail('内容已更新，请刷新后重试',409);return get(r.id);}
  const path=new URL(req.url).pathname.replace('/api/studio/','').split('/'),action=path[0];
+ if(action.startsWith('ingestion'))return await ingestionAPI(req,env,{get,save,create,list,uid,fail,json});
  const docs=async()=>list('document');
  async function usable(){const ds=await docs();return (await list('chunk')).filter((k:R)=>canUse(k,ds));}
  async function captureDraft(t:R){if(!t.markdown?.trim())return;const rid='draft:'+t.id+':'+(t.draftVersion||1),payload={taskId:t.id,draftVersion:t.draftVersion||1,title:t.title,markdown:t.markdown,outline:t.outline,evidence:t.evidence,rules:t.rules,writingRules:t.writingRules||'',seoTitle:t.seoTitle,metaDescription:t.metaDescription,slug:t.slug,taskRevision:t.revision};await env.DB.prepare('INSERT OR IGNORE INTO studio_records(id,kind,owner,state,revision,payload,created,updated) VALUES(?,?,?,?,1,?,?,?)').bind(rid,'history',uid,'saved',JSON.stringify(payload),now(),now()).run();}
@@ -31,7 +33,7 @@ export async function api(req:Request,env:any){try{
  }
  if(action==='knowledge'){const ds=await docs(),ks=(await list('chunk')).filter((k:R)=>k.state!=='excluded');return json({items:ks.map((k:R)=>({...k,sourceVersion:ds.find((d:R)=>d.id===k.docId)?.sourceVersion||1,available:canUse(k,ds),sourceName:ds.find((d:R)=>d.id===k.docId)?.name,related:relatedKnowledge(k,ks)})),documents:ds});}
  if(action==='taskHistory'){const t=await get(path[1],'task');const versions=(await list('history')).filter((h:R)=>h.taskId===t.id&&h.markdown&&h.draftVersion).sort((a:R,b:R)=>b.draftVersion-a.draftVersion);if(path[2]){const h=versions.find((h:R)=>h.id===decodeURIComponent(path[2]));if(!h)fail('草稿版本不存在',404);const md='# '+h.title+'\n\n'+h.markdown+'\n\n## 参考来源\n'+(h.evidence||[]).map((e:R)=>'['+e.ref+'] '+e.title+' · 资料V'+(e.sourceVersion||1)+' · '+(e.source||'')).join('\n')+'\n\n## 写作规则\n'+(h.writingRules||'无额外规则')+'\n\n## SEO信息\n'+(h.seoTitle||h.title)+'\n'+(h.metaDescription||'');return new Response(md,{headers:{'Content-Type':'text/markdown;charset=utf-8','Content-Disposition':"attachment; filename*=UTF-8''"+encodeURIComponent(h.title+'-V'+h.draftVersion+'.md'),'Cache-Control':'private, no-store'}});}return json({versions});}
- if(action==='state')return json({documents:await docs(),chunks:await list('chunk'),tasks:await list('task'),agents:agentInfo,user:{id:uid,email,name:email.split('@')[0]},config:{model:!!env.AI_URL&&!!env.AI_MODEL,semantic:false}});
+ if(action==='state')return json({documents:await docs(),chunks:await list('chunk'),tasks:await list('task'),agents:agentInfo,user:{id:uid,email,name:email.split('@')[0]},config:{model:!!env.AI_URL&&!!env.AI_MODEL,semantic:false,knowledgeModel:!!(env.KNOWLEDGE_AI_URL||env.AI_URL)&&!!(env.KNOWLEDGE_AI_MODEL||env.AI_MODEL)}});
  if(action==='document'){const d=await get(path[1],'document');return json({...d,chunks:(await list('chunk')).filter((k:R)=>k.docId===d.id&&k.state!=='excluded')});}
  if(action==='task'){let t=await get(path[1],'task');if(t.state==='running'&&Date.now()-Date.parse(t.updated)>180000)t=await save(t,{error:'上次执行中断，请重试当前步骤。'},'failed');return json(await taskView(t));}
  if(action==='source'){const d=await get(path[1],'document'),f=await env.BUCKET.get(d.fileKey);if(!f)fail('原文件不存在',404);return new Response(f.body,{headers:{'Content-Type':'text/markdown;charset=utf-8','Content-Disposition':'attachment; filename="source.md"','Cache-Control':'no-store'}});}
