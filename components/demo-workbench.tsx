@@ -30,7 +30,7 @@ export function DemoWorkbench({onDirtyChange,onOpenDocument}:{onDirtyChange?:(v:
  const documents=data.documents.filter((d:R)=>!d.supersededBy),pending=doc?.chunks.filter((k:R)=>k.state==='pending')||[],regular=pending.filter((k:R)=>!k.risks.length),nextVersion=(task?.draftVersion||0)+1;
  const stageLabels:R={sources:'选择 Sources',research:'研究策划',outline:'确认大纲',write:'文章起草',revise:'按意见修改',check:'内容检查',review:'人工审核',done:'完成交付',extract:'语义提取',link:'条件关联',audit:'证据复核',complete:'整理完成'};
  const current=active==='knowledge'?job:task;
- const agentSteps=[{id:'knowledge',name:'知识整理',detail:'从资料提取可审核知识',status:job?(job.state==='succeeded'?(job.documentId?'结果已保存':'待人工审核'):job.handoff?'等待 Codex 结果':'待交接'):documents.some((d:R)=>d.state==='ready')?'已有审核资料':'待整理'},
+ const agentSteps=[{id:'knowledge',name:'知识整理',detail:'从资料提取可审核知识',status:job?(job.state==='succeeded'?(job.documentId?'结果已保存':'待人工审核'):(job.handoff||job.packet)?'等待 Codex 结果':'待交接'):documents.some((d:R)=>d.state==='ready')?'已有审核资料':'待整理'},
  {id:'research',name:'研究策划',detail:'选择来源，准备文章大纲',status:!task?'待创建 Brief':task.stage==='sources'?'待确认 Sources':task.stage==='research'?(task.handoff?'等待 Codex 结果':'待交接'):task.stage==='outline'?'待确认大纲':'大纲已确认'},
  {id:'writer',name:'写作',detail:'根据大纲与来源起草正文',status:!task?'等待大纲':['write','revise'].includes(task.stage)?(task.handoff?'等待 Codex 结果':'待交接'):task.markdown?'草稿 V'+task.draftVersion:'等待大纲'},
  {id:'checker',name:'检查',detail:'核对内容，人工确认交付',status:!task?'等待草稿':task.stage==='check'?(task.handoff?'等待 Codex 结果':'待交接'):task.stage==='review'?'待人工审核':task.stage==='done'?'已确认交付':'等待草稿'}];
