@@ -1,4 +1,5 @@
 import {modelSettingsAPI} from './model-settings';
+import {knowledgePacketAPI} from './knowledge-packet.mjs';
 import {handoffAPI} from './handoff.mjs';
 import {sourceDiagnostics} from './source-diagnostics.mjs';
 import demoKnowledge from '../../demo/payo/01-知识整理结果.json';
@@ -25,6 +26,7 @@ export async function api(req:Request,env:any){try{
  async function create(kind:string,p:R,state='draft'){const rid=id(),t=now();await env.DB.prepare('INSERT INTO studio_records(id,kind,owner,state,revision,payload,created,updated) VALUES(?,?,?,?,1,?,?,?)').bind(rid,kind,uid,state,JSON.stringify(p),t,t).run();return get(rid);}
  async function save(r:R,p:R,state=r.state){const res=await env.DB.prepare('UPDATE studio_records SET payload=?,state=?,revision=revision+1,updated=? WHERE id=? AND owner=? AND revision=?').bind(JSON.stringify({...r,...p}),state,now(),r.id,uid,r.revision).run();if(res.meta.changes!==1)fail('内容已更新，请刷新后重试',409);return get(r.id);}
  const path=new URL(req.url).pathname.replace('/api/studio/','').split('/'),action=path[0];
+ if(action==='knowledgePacketExport'||action==='knowledgePacketImport')return await knowledgePacketAPI(req,env,{get,list,save,fail,json});
  if(action==='run'||action==='ingestionRun')fail('此 Flow 使用 Codex 人工交接，请导出任务包并导入结果；本站不调用模型。',409);
  if(action==='handoffExport'||action==='handoffImport')return await handoffAPI(req,env,{get,list,save,fail,json,captureDraft,persistDraft});
  if(action==='modelSettings')return await modelSettingsAPI(req,env,uid,json);
