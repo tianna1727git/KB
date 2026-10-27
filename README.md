@@ -111,3 +111,9 @@ node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1
 部署需要设置秘密环境变量 `MODEL_SETTINGS_ENCRYPTION_KEY`，为64位十六进制的256位随机值。该值只保存在Sites服务端秘密环境中，不进源码或托管清单。必须保留该密钥才能解密已保存配置；不要随意轮换或清除。环境变量配置方式继续适用于已有部署。页面配置只允许OpenAI官方固定HTTPS接口，不支持自定义供应商地址。密钥授权、模型权限及API额度由用户在OpenAI开发者平台管理；本站配置不创建API Key或计费账户。
 
 `tests/model-settings.integration.mjs` 使用Miniflare和模拟OpenAI响应，验证权限、加密、身份绑定、密钥不回显、配置生效、失败保留、缓存密钥复用、频率及修订冲突。没有使用真实API Key，也不代表用户账号已成功连通。
+
+## 当前 demo：160份Markdown与拉美跨境101
+
+左侧demo提供实际批量Markdown上传、结构解析切片、审核入库、主题/平台/Brief、Sources确认、研究大纲、正文检查和多版本迭代。默认主题“拉美跨境101”、平台“官网”。资料不自动初始化或清空；已有资料按指纹复用。切片阶段不调用模型，内容生成需要已配置且有额度的模型，不使用旧SWIFT预制草稿。
+
+同一demo任务可通过`demoRebrief`保存新Brief，保留旧正文及Brief/来源快照，再重新检索和生成V2、V3等。历史版本可查看和下载。`demoState`仅返回当前账号资料元数据、任务及模型状态。无数据库迁移。完整操作说明见`demo/payo/演示步骤.md`；160份上传、旧知识保留、多Brief版本及失败恢复由`tests/demo.integration.mjs`覆盖（模型为替身）。
