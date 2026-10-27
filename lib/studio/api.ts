@@ -1,3 +1,4 @@
+import {parseUpload} from './parse-upload';
 import libraryFiles from './library-data.json';
 import {splitMarkdown,coverage,rank,canUse,citationCheck} from './knowledge.mjs';
 import {agentInfo,modelJSON,messages} from './agent.mjs';
@@ -20,9 +21,9 @@ export async function api(req:Request,env:any){try{
  async function taskView(t:R){const ds=await docs(),ks=await list('chunk');return {...t,stale:(t.evidence||[]).filter((s:R)=>{const k=ks.find((x:R)=>x.id===s.id);return !k||k.revision!==s.revision||!canUse(k,ds);}).map((s:R)=>s.ref)};}
  if(req.method==='GET'){
  if(action==='library'){
- if(email.toLowerCase()!=='tianna1727@gmail.com'){if(path[1])fail('资料不存在',404);return json({files:[],total:0});}
- if(!path[1])return json({files:(await list('library')).map(({fileKey,...f}:R)=>f),total:libraryFiles.length});
+ if(!path[1]){const stored=await list('library'),documents=await docs();return json({files:[...stored.filter((f:R)=>!documents.some((d:R)=>d.hash===f.sha256)).map(({fileKey,...f}:R)=>f),...documents.map((d:R)=>({...d,path:d.name,title:d.name.replace(/\.(md|markdown)$/i,''),size:new TextEncoder().encode(d.markdown).length,isDocument:true}))],total:email.toLowerCase()==='tianna1727@gmail.com'?libraryFiles.length:0,seedCount:stored.filter((f:R)=>f.collection==='ProductMarketingChina').length});}
  const f=await get(path[1],'library'),stored=await env.BUCKET.get(f.fileKey);if(!stored)fail('原文件不存在',404);
+ if(path[2]==='original'){if(!f.originalKey)fail('无独立原始文件',404);const original=await env.BUCKET.get(f.originalKey);if(!original)fail('原始文件不存在',404);return new Response(original.body,{headers:{'Content-Type':'application/octet-stream','Content-Disposition':"attachment; filename*=UTF-8''"+encodeURIComponent(f.originalName),'Cache-Control':'private, no-store'}});}
  if(path[2]==='download')return new Response(stored.body,{headers:{'Content-Type':'text/markdown;charset=utf-8','Content-Disposition':"attachment; filename*=UTF-8''"+encodeURIComponent(f.name),'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
  return json({...f,markdown:await stored.text()});
  }
@@ -32,6 +33,17 @@ export async function api(req:Request,env:any){try{
  if(action==='source'){const d=await get(path[1],'document'),f=await env.BUCKET.get(d.fileKey);if(!f)fail('原文件不存在',404);return new Response(f.body,{headers:{'Content-Type':'text/markdown;charset=utf-8','Content-Disposition':'attachment; filename="source.md"','Cache-Control':'no-store'}});}
  fail('接口不存在',404);}
  if(req.method!=='POST')fail('请求方法无效',405);
+ if(action==='libraryUpload'){
+ const form=await req.formData(),file=form.get('file'),mode=form.get('mode');if(!(file instanceof File))fail('请选择文件');
+ const isMarkdown=mode==='markdown';if(!['markdown','parse'].includes(String(mode)))fail('上传方式无效');if(isMarkdown&&!/\.(md|markdown)$/i.test(file.name)||!isMarkdown&&!/\.(pdf|docx|pptx|xlsx|txt)$/i.test(file.name))fail(isMarkdown?'请选择 Markdown 文件':'支持 PDF、DOCX、PPTX、XLSX、TXT');
+ if(!file.size||file.size>(isMarkdown?2:20)*1024*1024)fail(isMarkdown?'Markdown 最大2 MB':'原始文件最大20 MB');
+ const bytes=new Uint8Array(await file.arrayBuffer());const digest=async(b:Uint8Array)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b as BufferSource))).map(n=>n.toString(16).padStart(2,'0')).join('');const originalHash=await digest(bytes);
+ const duplicate=(await list('library')).find((f:R)=>f.originalHash===originalHash||f.sha256===originalHash);if(duplicate)return json({file:duplicate,duplicate:true});
+ let markdown='',warnings:string[]=[];if(isMarkdown){try{markdown=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}catch{fail('Markdown 请保存为 UTF-8 编码');}if(!markdown.trim())fail('文件正文为空');}else{const parsed=await parseUpload(bytes,file.name);markdown=parsed.markdown;warnings=parsed.warnings;}
+ const name=isMarkdown?file.name:file.name.replace(/\.[^.]+$/,'.md'),key='library/'+uid+'/'+id(),fileKey=key+'.md',originalKey=isMarkdown?null:key+'.original';
+ await env.BUCKET.put(fileKey,markdown,{httpMetadata:{contentType:'text/markdown;charset=utf-8'}});if(originalKey)await env.BUCKET.put(originalKey,bytes,{httpMetadata:{contentType:'application/octet-stream'}});
+ const f=await create('library',{name,title:name.replace(/\.(md|markdown)$/i,''),path:name,size:new TextEncoder().encode(markdown).length,sha256:await digest(new TextEncoder().encode(markdown)),originalHash,originalKey,originalName:file.name,fileKey,source:file.name,collection:'用户上传',warnings,imported:now().slice(0,10)},'stored');return json({file:f,duplicate:false});
+ }
  if(action==='upload'){
  const form=await req.formData(),file=form.get('file');if(!(file instanceof File)||! /\.(md|markdown)$/i.test(file.name))fail('请选择 .md 或 .markdown 文件。');if(!file.size||file.size>2*1024*1024)fail('文件应为 1 字节至 2 MB。');const bytes=await file.arrayBuffer();let markdown='';try{markdown=new TextDecoder('utf-8',{fatal:true}).decode(bytes).replace(/^\uFEFF/,'');}catch{fail('请将 Markdown 文件保存为 UTF-8 编码。');}
  const category=String(form.get('category')||'产品'),purpose=String(form.get('purpose')||'fact');if(!['产品','品牌','法务','市场研究','客户案例','其他'].includes(category)||!['fact','rule','both'].includes(purpose))fail('分类或用途无效');const source=String(form.get('source')||'').trim();if(!source)fail('请填写资料来源');const region=String(form.get('region')||'').trim(),effective=String(form.get('effective')||''),expires=String(form.get('expires')||'');if(!effective||!Number.isFinite(Date.parse(effective))||expires&&(!Number.isFinite(Date.parse(expires))||Date.parse(expires)<=Date.parse(effective)))fail('请填写正确的生效日期和到期日期');
