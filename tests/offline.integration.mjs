@@ -27,13 +27,15 @@ try{
  let j=(await call('ingestionJob?id='+encodeURIComponent(jid))).j;assert.equal(j.origin,'codex-offline');assert.equal(j.usage.attempts,0);
  assert.equal((await call('ingestionCommit',{id:jid,revision:j.revision,ids:j.items.map(i=>i.id),reviewed:false})).status,400);
  r=await call('ingestionCommit',{id:jid,revision:j.revision,ids:j.items.map(i=>i.id),reviewed:true});assert.equal(r.status,200,JSON.stringify(r.j));
+ const diagnosticTask=(await call('createTask',{keyword:'SWIFT申请',sourceStage:true})).j;
+ const blocked=(await call('prepareSources',{id:diagnosticTask.id,revision:diagnosticTask.revision})).j;assert.equal(blocked.sourceDiagnostics.eligible,0);assert.equal(blocked.sourceDiagnostics.excluded[0].key,'pending');assert.equal(blocked.sourceCandidates.length,0);
  const did=r.j.document.id;let d=(await call('document/'+did)).j;assert.equal(d.external,false);assert.equal(d.chunks[0].state,'pending');
  await call('documentPermission',{id:did,revision:d.revision,external:true});d=(await call('document/'+did)).j;
  for(const k of d.chunks)assert.equal((await call('confirm',{ids:[k.id],riskConfirmed:true})).status,200);
  d=(await call('document/'+did)).j;assert.equal(d.state,'ready');
  const brief={keyword:'SWIFT申请',platform:'官网',audience:'跨境卖家',writingRules:'不承诺审批结果'};
  let t=(await call('createTask',{...brief,sourceStage:true})).j;t=(await call('prepareSources',{id:t.id,revision:t.revision})).j;
- assert.equal(t.sourceCandidates.length,1);t=(await call('confirmSources',{id:t.id,revision:t.revision,ids:t.sourceCandidates.map(k=>k.id)})).j;
+ assert.equal(t.sourceCandidates.length,1);assert.equal(t.sourceDiagnostics.eligible,1);assert.equal(t.sourceDiagnostics.excluded.length,0);t=(await call('confirmSources',{id:t.id,revision:t.revision,ids:t.sourceCandidates.map(k=>k.id)})).j;
  const draft={kind:'draft',brief,title:'SWIFT申请准备',outline:'## 申请与材料[S1]',markdown:'按账户页面查看开通要求，准备材料等待审核。[S1]',sources:[{ref:'S1',sourceSha256:sha,bodySha256:hash(pack.items[0].statement)}]};
  const importDraft=(p,task=t)=>call('offlineImport',{...wrap(p),taskId:task.id,revision:task.revision});
  const wrong=structuredClone(draft);wrong.brief.platform='知乎';assert.equal((await importDraft(wrong)).status,400);
