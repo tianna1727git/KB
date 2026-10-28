@@ -1,8 +1,9 @@
+import {apiIngestionAPI} from './api-ingestion';
 import {sourceBlocks,extractionBatches} from './ingestion-agent.mjs';
 import {riskTerms} from './knowledge.mjs';
 type R=Record<string,any>;
 const stamp=()=>new Date().toISOString();
-export async function ingestionAPI(req:Request,env:any,ctx:R){const {get,save,create,list,uid,fail,json}=ctx;const action=new URL(req.url).pathname.split('/').pop();
+async function manualIngestionAPI(req:Request,env:any,ctx:R){const {get,save,create,list,uid,fail,json}=ctx;const action=new URL(req.url).pathname.split('/').pop();
  const configured=()=>false;
  const fingerprint=async(markdown:string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode([markdown,'codex-handoff-v1'].join('\n'))))).map(n=>n.toString(16).padStart(2,'0')).join('');
  function view(j:R){const {blocks,...v}=j;const cited=new Set((j.items||[]).flatMap((i:R)=>i.evidence.map((e:R)=>e.blockId)));return {...v,configured:configured(),uncovered:(blocks||[]).filter((b:R)=>!cited.has(b.id)||(j.auditOmissions||[]).some((o:R)=>o.blockId===b.id)).map((b:R)=>({id:b.id,start:b.start,end:b.end,text:b.text.slice(0,1000),reason:[...(j.auditOmissions||[]),...(j.omissions||[])].find((o:R)=>o.blockId===b.id)?.reason||'该段尚未被知识条目引用，请人工核对。'}))};}
@@ -23,4 +24,13 @@ export async function ingestionAPI(req:Request,env:any,ctx:R){const {get,save,cr
  try{await env.DB.batch([env.DB.prepare('INSERT INTO studio_records(id,kind,owner,state,revision,payload,created,updated) VALUES(?,?,?,?,1,?,?,?)').bind(documentId,'document',uid,'review',JSON.stringify(documentPayload),time,time),...inserts,env.DB.prepare('UPDATE studio_records SET payload=?,state=?,revision=revision+1,updated=? WHERE id=? AND owner=? AND revision=?').bind(JSON.stringify({...locked,documentId,committedAt:time}),'succeeded',time,locked.id,uid,locked.revision)]);}catch(e:any){await save(locked,{error:'保存失败，未写入部分知识，可重试。'},'succeeded');throw e;}return json({document:d,count:selected.length});
  }
  fail('接口不存在',404);
+}
+
+export async function ingestionAPI(req:Request,env:any,ctx:R){
+ const action=new URL(req.url).pathname.split('/').pop();
+ if(req.method==='GET')return apiIngestionAPI(req,env,ctx);
+ const b:any=await req.clone().json();
+ const manual=action==='ingestionStart'?b.executionMode==='manual'||b.demoFlow===true:(await ctx.get(b.id,'ingestion')).pipeline==='codex-handoff-v1';
+ if(manual){if(action==='ingestionRun')ctx.fail('此任务保持 Codex 人工交接，请使用任务包。',409);return manualIngestionAPI(req,env,ctx);}
+ return apiIngestionAPI(req,env,ctx);
 }

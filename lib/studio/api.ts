@@ -1,5 +1,5 @@
 import {demoKBAPI} from './demo-kb.mjs';
-import {modelSettingsAPI} from './model-settings';
+import {modelSettingsAPI,resolveModelEnv} from './model-settings';
 import {knowledgePacketAPI} from './knowledge-packet.mjs';
 import {handoffAPI} from './handoff.mjs';
 import {sourceDiagnostics} from './source-diagnostics.mjs';
@@ -12,7 +12,7 @@ import {classifyKnowledge,relatedKnowledge,topicQueries} from './knowledge-model
 import {parseUpload} from './parse-upload';
 import libraryFiles from './library-data.json';
 import {splitMarkdown,coverage,rank,canUse,citationCheck} from './knowledge.mjs';
-import {agentInfo} from './agent.mjs';
+import {agentInfo,modelJSON,messages} from './agent.mjs';
 type R=Record<string,any>;
 const id=()=>crypto.randomUUID(),now=()=>new Date().toISOString();
 function fail(message:string,code=400):never{throw Object.assign(new Error(message),{code});}
@@ -29,7 +29,8 @@ export async function api(req:Request,env:any){try{
  const path=new URL(req.url).pathname.replace('/api/studio/','').split('/'),action=path[0];
  if(action.startsWith('demoKb'))return await demoKBAPI(req,env,{get,list,save,create,fail,json,uid,email,captureDraft,persistDraft});
  if(action==='knowledgePacketExport'||action==='knowledgePacketImport')return await knowledgePacketAPI(req,env,{get,list,save,fail,json});
- if(action==='run'||action==='ingestionRun')fail('此 Flow 使用 Codex 人工交接，请导出任务包并导入结果；本站不调用模型。',409);
+ if(action==='run'){const b:any=await req.clone().json();const t=await get(b.id,'task');if(t.demoFlow)fail('Demo 保持 Codex 人工交接，请使用任务包。',409);}
+ if(action==='state'||action==='run'||action.startsWith('ingestion'))env=await resolveModelEnv(env,uid);
  if(action==='handoffExport'||action==='handoffImport')return await handoffAPI(req,env,{get,list,save,fail,json,captureDraft,persistDraft});
  if(action==='modelSettings')return await modelSettingsAPI(req,env,uid,json);
  if(action==='offlineImport')fail('请使用当前步骤的人工交接任务包导入结果',409);
@@ -60,7 +61,7 @@ export async function api(req:Request,env:any){try{
  if(action==='demoState'){const documents=(await docs()).map(({markdown,...d}:R)=>d);return json({config:{model:false,manual:true},files:(await list('library')).map(({fileKey,originalKey,...f}:R)=>({...f,document:documents.filter((d:R)=>d.hash===f.sha256&&!d.supersededBy).sort((a:R,b:R)=>(b.sourceVersion||1)-(a.sourceVersion||1))[0]||null})),tasks:(await list('task')).filter((t:R)=>t.demoFlow),documents});}
  if(action==='knowledge'){const ds=await docs(),ks=(await list('chunk')).filter((k:R)=>k.state!=='excluded');return json({items:ks.map((k:R)=>({...k,sourceVersion:ds.find((d:R)=>d.id===k.docId)?.sourceVersion||1,available:canUse(k,ds),sourceName:ds.find((d:R)=>d.id===k.docId)?.name,related:relatedKnowledge(k,ks)})),documents:ds});}
  if(action==='taskHistory'){const t=await get(path[1],'task');const versions=(await list('history')).filter((h:R)=>h.taskId===t.id&&h.markdown&&h.draftVersion).sort((a:R,b:R)=>b.draftVersion-a.draftVersion);if(path[2]){const h=versions.find((h:R)=>h.id===decodeURIComponent(path[2]));if(!h)fail('草稿版本不存在',404);const md='# '+h.title+(h.offlineOrigin?'\n\n> '+h.offlineOrigin+'；来源及内容须人工审核。':'')+'\n\n'+h.markdown+(h.brief?'\n\n## 写作 Brief\n主题：'+h.brief.keyword+'\n平台：'+h.brief.platform+'\n读者：'+h.brief.audience+'\n'+h.brief.description:'')+'\n\n## 参考来源\n'+(h.evidence||[]).map((e:R)=>'['+e.ref+'] '+e.title+' · 资料V'+(e.sourceVersion||1)+' · '+(e.source||'')).join('\n')+'\n\n## 写作规则\n'+(h.writingRules||'无额外规则')+'\n\n## SEO信息\n'+(h.seoTitle||h.title)+'\n'+(h.metaDescription||'');return new Response(md,{headers:{'Content-Type':'text/markdown;charset=utf-8','Content-Disposition':"attachment; filename*=UTF-8''"+encodeURIComponent(h.title+'-V'+h.draftVersion+'.md'),'Cache-Control':'private, no-store'}});}return json({versions});}
- if(action==='state')return json({documents:await docs(),chunks:await list('chunk'),tasks:await list('task'),agents:agentInfo,user:{id:uid,email,name:email.split('@')[0]},config:{model:false,manual:true,semantic:false,knowledgeModel:false}});
+ if(action==='state')return json({documents:await docs(),chunks:await list('chunk'),tasks:await list('task'),agents:agentInfo,user:{id:uid,email,name:email.split('@')[0]},config:{model:!!env.AI_URL&&!!env.AI_MODEL,manual:false,semantic:false,knowledgeModel:!!(env.KNOWLEDGE_AI_URL||env.AI_URL)&&!!(env.KNOWLEDGE_AI_MODEL||env.AI_MODEL)}});
  if(action==='document'){const d=await get(path[1],'document');return json({...d,chunks:(await list('chunk')).filter((k:R)=>k.docId===d.id&&k.state!=='excluded')});}
  if(action==='task'){let t=await get(path[1],'task');if(t.state==='running'&&Date.now()-Date.parse(t.updated)>180000)t=await save(t,{error:'上次执行中断，请重试当前步骤。'},'failed');return json(await taskView(t));}
  if(action==='source'){const d=await get(path[1],'document'),f=await env.BUCKET.get(d.fileKey);if(!f)fail('原文件不存在',404);return new Response(f.body,{headers:{'Content-Type':'text/markdown;charset=utf-8','Content-Disposition':'attachment; filename="source.md"','Cache-Control':'no-store'}});}
@@ -125,7 +126,7 @@ export async function api(req:Request,env:any){try{
  if(action==='revoke'){const k=await get(b.id,'chunk');return json(await save(k,{confirmedAt:null},'pending'));}
  if(action==='createTask'){
  const keyword=String(b.keyword||'').trim();if(!keyword||keyword.length>200)fail('请输入不超过200字的主题关键词');const platform=String(b.platform||'官网'),audience=String(b.audience||'准备拓展海外市场的中国跨境电商卖家');if(!['官网','微信公众号','知乎','小红书'].includes(platform)||audience.length>300||String(b.description||'').length>3000)fail('写作需求格式无效');const writingRules=String(b.writingRules||'').trim();if(writingRules.length>5000)fail('写作规则最多5000字');const requestedSources=Array.isArray(b.sourceIds)?b.sourceIds.slice(0,20):[];
- const t=await create('task',{demoFlow:b.demoFlow===true,writingRules,requestedSources,draftVersion:0,keyword,platform,audience,description:String(b.description||''),title:keyword+'写作任务',executionMode:'manual',stage:'sources',events:[],queries:[],evidence:[],rules:[],outline:'',markdown:'',missing:[],issues:[],error:'',round:0},'waiting');return json(t);}
+ const t=await create('task',{demoFlow:b.demoFlow===true,writingRules,requestedSources,draftVersion:0,keyword,platform,audience,description:String(b.description||''),title:keyword+'写作任务',executionMode:b.demoFlow===true?'manual':'api',stage:'sources',events:[],queries:[],evidence:[],rules:[],outline:'',markdown:'',missing:[],issues:[],error:'',round:0},'waiting');return json(t);}
  if(action==='demoRebrief'){
  const t=await get(b.id,'task');if(!t.demoFlow)fail('请选择demo中的文章任务');if(t.state==='running'||t.revision!==b.revision)fail('任务已变化或正在运行',409);if(!t.draftVersion||!t.markdown)fail('请先完成当前版本，或重试未完成的步骤');
  const keyword=String(b.keyword||'').trim(),platform=String(b.platform||''),audience=String(b.audience||'').trim(),description=String(b.description||'').trim(),writingRules=String(b.writingRules||'').trim();if(!keyword||keyword.length>200||!['官网','微信公众号','知乎','小红书'].includes(platform)||!audience||audience.length>300||!description||description.length>3000||writingRules.length>5000)fail('请填写有效的主题、平台、读者和Brief');
@@ -137,6 +138,31 @@ export async function api(req:Request,env:any){try{
  if(action==='approveOutline'){const t=await get(b.id,'task');if(t.state==='running'||t.revision!==b.revision||t.stage!=='outline')fail('大纲状态已变化，请刷新',409);if((await taskView(t)).stale.length)fail('来源已变化，请重新研究');return json(await save(t,{stage:'write',outlineApprovedAt:now()},'waiting'));}
  if(action==='complete'){const t=await get(b.id,'task');if(t.state==='running'||t.revision!==b.revision||t.stage!=='review')fail('请完成内容检查后再确认交付',409);if((await taskView(t)).stale.length)fail('来源已变化，请重新研究');if(!t.markdown.trim())fail('正文为空');if(!b.confirmed)fail('请确认已人工审核正文、来源和待补充项');return json(await save(t,{stage:'done',approvedAt:now()},'done'));}
  if(action==='restartResearch'){const t=await get(b.id,'task');if(t.state==='running'||t.revision!==b.revision)fail('任务状态已变化',409);await captureDraft(t);await create('history',{taskId:t.id,markdown:t.markdown,outline:t.outline,evidence:t.evidence},'saved');return json(await save(t,{evidence:[],rules:[],markdown:'',outline:'',issues:[],error:'',round:0,sourcesConfirmed:false,selectedSourceIds:[],sourceCandidates:[],stage:'sources'},'waiting'));}
+ if(action==='run'){
+ let t=await get(b.id,'task');if(t.revision!==b.revision||t.state==='running')fail('任务正在执行或已更新',409);if(!['research','write','check','revise'].includes(t.stage))fail('当前步骤需要人工确认');if(t.stage==='write'&&!t.outlineApprovedAt)fail('请先人工确认大纲',409);if(!env.AI_URL||!env.AI_MODEL)fail('文章模型尚未配置。任务已保存，可在服务配置完成后继续。',503);
+ if(t.stage!=='research'&&(await taskView(t)).stale.length)fail('引用知识已变化或失效，请重新研究');t=await save(t,{error:''},'running');const locked=t;const stage=t.stage;
+ try{
+ if(stage==='research'){
+ const available=await usable();if(t.sourcesConfirmed&&(!t.selectedSourceIds?.length||t.selectedSourceIds.some((rid:string)=>!available.some((k:R)=>k.id===rid&&(!t.selectedSourceSnapshots?.length||t.selectedSourceSnapshots.some((s:R)=>s.id===rid&&s.revision===k.revision&&s.docRevision===k.docRevision))))))throw Error('已确认的来源版本已变化，请重新选择 Sources');const all=available,facts=all.filter((k:R)=>k.external&&k.purpose!=='rule'&&(!t.sourcesConfirmed||t.selectedSourceIds?.includes(k.id))),rules=all.filter((k:R)=>k.purpose!=='fact');if(!facts.length)throw Error('暂无可对外引用的已入库知识，请先上传并确认资料。');if(rules.length>30)throw Error('写作规则较多，请先整理规则范围');
+ const plan:any=await modelJSON(env,messages('研究策划 Agent',{keyword:t.keyword,audience:t.audience,platform:t.platform,description:t.description,writingRules:t.writingRules||'',knowledgeCatalog:facts.slice(0,300).map((k:R)=>({title:k.title,region:k.region,category:k.category}))},'{intent:string, queries:string[]（最多8个检索问题）}'),1500);
+ if(typeof plan.intent!=='string'||!Array.isArray(plan.queries)||!plan.queries.length||plan.queries.length>8||plan.queries.some((q:any)=>typeof q!=='string'||q.length>300))throw Error('研究计划格式无效，请重试');
+ const queries=[t.keyword,...plan.queries],hits=new Map();for(const q of queries)for(const k of rank(q,facts,8))hits.set(k.id,k);const primary=[...hits.values()].sort((a:any,b:any)=>b.score-a.score).slice(0,10) as R[];const contextHits=new Map(primary.map(k=>[k.id,k]));for(const k of primary)for(const neighbor of facts.filter((x:R)=>x.docId===k.docId&&Math.abs(x.order-k.order)<=1))contextHits.set(neighbor.id,neighbor);const found=(t.sourcesConfirmed?facts:[...contextHits.values()]) as R[];
+ if(!found.length)throw Error('没有找到相关的可引用知识，请补充资料或修改关键词');
+ const ds=await docs();const snap=(k:R)=>({id:k.id,revision:k.revision,docId:k.docId,docRevision:k.docRevision,title:k.title,body:k.body,heading:k.heading,region:k.region,source:ds.find((d:R)=>d.id===k.docId)?.source,sourceVersion:ds.find((d:R)=>d.id===k.docId)?.sourceVersion||1,type:k.type,products:k.products,platforms:k.platforms,start:k.start,end:k.end});const evidence=found.map((k,i)=>({...snap(k),ref:'S'+(i+1)})),ruleSnaps=rules.map(snap);
+ const context={intent:plan.intent,platform:t.platform,audience:t.audience,description:t.description,writingRules:t.writingRules||'',evidence,rules:ruleSnaps};if(JSON.stringify(context).length>100000)throw Error('知识上下文超过上限，请缩小主题或整理资料。');
+ const outline:any=await modelJSON(env,messages('研究策划 Agent',context,'{title:string,outline:string（Markdown大纲，每节标注依据[S1]）,missing:string[]}'),3000);if(typeof outline.title!=='string'||typeof outline.outline!=='string'||!outline.outline.trim()||outline.outline.length>10000||!Array.isArray(outline.missing))throw Error('大纲格式无效');citationCheck(outline.outline,evidence);
+ await save(t,{title:outline.title.slice(0,200),intent:plan.intent,queries,evidence,rules:ruleSnaps,outline:outline.outline,missing:outline.missing.slice(0,30),stage:'outline',events:[...t.events,{name:'研究策划',agent:'research',state:'complete',time:now(),detail:queries.length+'个检索问题，'+evidence.length+'条证据'}]},'waiting');
+ }else if(stage==='write'||stage==='revise'){
+ if(stage==='revise'&&t.round>=2)throw Error('已达到两轮修改上限，请人工处理剩余问题');
+ const data={keyword:t.keyword,platform:t.platform,audience:t.audience,description:t.description,writingRules:t.writingRules||'',outline:t.outline,evidence:t.evidence,rules:t.rules,...(stage==='revise'?{draft:t.markdown,issues:t.issues}:{})};const output:any=await modelJSON(env,messages('内容写作 Agent',data,'{title:string,markdown:string（正文事实段落使用[S1]引用，缺口写【待补充】）,seoTitle:string,metaDescription:string,slug:string,missing:string[]}'),6500);
+ if(typeof output.title!=='string'||typeof output.markdown!=='string'||!output.markdown.trim()||output.markdown.length>60000||!Array.isArray(output.missing))throw Error('正文格式无效');citationCheck(output.markdown,t.evidence);await create('history',{taskId:t.id,markdown:t.markdown,evidence:t.evidence},'saved');await save(t,{...Object.fromEntries(['title','markdown','seoTitle','metaDescription','slug','missing'].map(k=>[k,output[k]])),draftVersion:(t.draftVersion||0)+1,stage:'check',round:stage==='revise'?t.round+1:t.round,events:[...t.events,{name:stage==='revise'?'按意见修改':'文章起草',agent:'writer',state:'complete',time:now()}]},'waiting');
+ await captureDraft(await get(t.id));
+ }else{
+ citationCheck(t.markdown,t.evidence);const output:any=await modelJSON(env,messages('内容检查 Agent',{markdown:t.markdown,evidence:t.evidence,rules:t.rules,writingRules:t.writingRules||'',audience:t.audience,keyword:t.keyword},'{summary:string,issues:[{severity:"high"或"medium"或"low",quote:string（正文原句）,reason:string,suggestion:string}],missing:string[]}'),4000);
+ if(typeof output.summary!=='string'||!Array.isArray(output.issues)||output.issues.length>50||output.issues.some((x:R)=>!['high','medium','low'].includes(x.severity)||typeof x.quote!=='string'||!x.quote||!t.markdown.includes(x.quote)||typeof x.reason!=='string'||typeof x.suggestion!=='string'))throw Error('检查结果缺少有效段落定位，请重试');await save(t,{issues:output.issues,checkSummary:output.summary,stage:'review',events:[...t.events,{name:'内容检查',agent:'checker',state:'complete',time:now()}]},'waiting');}
+ const latest=await get(t.id);if((await taskView(latest)).stale.length)await save(latest,{error:'执行期间引用知识已变化，请重新研究'},'failed');
+ }catch(error:any){const latest=await get(t.id);await save(latest,{error:error.message||'执行失败',stage},'failed');}
+ return json(await taskView(await get(locked.id)));}
  if(action==='requestRevision'){const t=await get(b.id,'task');if(t.state==='running'||t.revision!==b.revision||t.stage!=='review'||t.round>=2)fail('当前不能自动修改，请人工编辑或刷新');return json(await save(t,{stage:'revise'},'waiting'));}
  fail('接口不存在',404);
  }catch(e:any){return json({error:e.message||'操作失败'},e.code||400);}}

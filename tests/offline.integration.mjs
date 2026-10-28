@@ -15,9 +15,9 @@ try{
  const form=new FormData();form.set('file',new File(['# 拉美市场\n拉美市场需要区分国家条件。'],'拉美.md'));for(const [k,v]of Object.entries({category:'市场研究',purpose:'fact',source:'测试资料',external:'true',effective:'2020-01-01'}))form.set(k,v);
  const did=(await req('upload',form)).j.document.id;let d=(await req('document/'+did)).j;await req('confirm',{ids:d.chunks.map(k=>k.id),riskConfirmed:true});d=(await req('document/'+did)).j;
  const brief={keyword:'拉美',platform:'官网',audience:'卖家',description:'入门介绍',writingRules:'不得编造'};
- let t=(await req('createTask',brief)).j;
+ let t=(await req('createTask',{...brief,demoFlow:true})).j;
  assert.equal(t.stage,'sources');assert.equal((await req('run',{id:t.id,revision:t.revision})).status,409);
- assert.equal((await req('ingestionRun',{id:t.id,revision:t.revision})).status,409);
+ assert.equal((await req('ingestionRun',{id:t.id,revision:t.revision})).status,404);
  assert.equal((await req('offlineImport',{format:'payo-codex-v1',reviewed:true,package:{kind:'draft'}})).status,409);
  assert.equal((await req('handoffExport',{kind:'task',id:t.id,revision:t.revision})).status,400);
  t=(await req('prepareSources',{id:t.id,revision:t.revision})).j;t=(await req('confirmSources',{id:t.id,revision:t.revision,ids:[d.chunks[0].id]})).j;
@@ -59,6 +59,6 @@ try{
  assert.equal((await req('task/'+t.id)).j.stage,'check');assert.equal((await req('taskHistory/'+t.id)).j.versions.length,2);
  const download=await mf.dispatchFetch('https://studio.test/api/studio/taskHistory/'+t.id+'/'+encodeURIComponent(first.id),{headers:identity});assert.equal(download.status,200);assert.match(await download.text(),/区分国家/);
  assert.equal((await req('handoffImport',{kind:'task',id:t.id,revision:t.revision,blob:'x'.repeat(513*1024)})).status,400);
- assert.equal((await req('state')).j.config.model,false);assert.equal((await req('state')).j.config.manual,true);
+ assert.equal((await req('state')).j.config.model,true);assert.equal((await req('state')).j.config.manual,false);
  mock.assertNoPendingInterceptors();console.log('PASS: bound handoff exports, invalid/foreign/replayed/stale results rejected, source permission changes, outline and check gates, revision V1/V2 history and downloads, no paid API calls even with configured models.');
 }finally{await mf.dispose();await mock.close();}

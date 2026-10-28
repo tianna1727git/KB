@@ -7,7 +7,7 @@ async function req(path,body,uid='owner',extra={}){const headers={'oai-authentic
 try{
  const db=await mf.getD1Database('DB');for(const f of readdirSync('drizzle').filter(f=>f.endsWith('.sql')))await db.exec(readFileSync('drizzle/'+f,'utf8').replace(/--> statement-breakpoint/g,'').replace(/\n/g,' '));
  const form=new FormData();form.set('mode','markdown');form.set('file',new File(['# 收款\n支持墨西哥收款。\n\n# 资格\n仅限企业账户。'],'资料.md'));const file=(await req('libraryUpload',form)).j.file;
- let job=(await req('ingestionStart',{id:file.id})).j;
+ let job=(await req('ingestionStart',{executionMode:'manual',id:file.id})).j;
  assert.equal((await req('knowledgePacketExport',{id:job.id,revision:job.revision},'other')).status,404);
  assert.equal((await req('knowledgePacketExport',{id:job.id,revision:job.revision},'owner',{origin:'https://evil.test'})).status,403);
  let ex=await req('knowledgePacketExport',{id:job.id,revision:job.revision});assert.equal(ex.status,200);let p=ex.j.package;
