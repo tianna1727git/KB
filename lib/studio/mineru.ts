@@ -48,23 +48,50 @@ export async function mineruAPI(req:Request,env:R,ctx:R):Promise<Response>{const
  if(action==='libraryMarkdownSave'){
   if(!f.fileKey||f.conversionState&&f.conversionState!=='done'||f.revision!==b.revision)fail('资料版本已变化或尚未完成转换',409);if(typeof b.markdown!=='string')fail('正文格式无效');return finish(b.markdown,{origin:'人工编辑',warnings:[...(f.warnings||[]),'此 Markdown 已人工编辑，请核对原文。']});
  }
+ const grantKey=(batch:string)=>'mineru-grants/'+uid+'/'+f.id+'/'+encodeURIComponent(batch);
+ async function readGrant(){if(!f.batchId)return null;const o=await env.BUCKET.get(grantKey(f.batchId));if(!o)return null;const g:any=await o.json();return g&&Number(g.expires)>Date.now()?g:null;}
+ async function remoteResult(key:string){const d=await call(key,f.batchId?'extract-results/batch/'+encodeURIComponent(f.batchId):'extract/task/'+encodeURIComponent(f.taskId));return f.batchId?d?.extract_result?.find((x:R)=>x.data_id===f.id||x.file_name===f.originalName):d;}
+ async function sendFile(link:string){
+  const target=providerURL(link),o=await env.BUCKET.get(f.originalKey);if(!o)fail('原件不存在',404);
+  f=await save(f,{conversionState:'running',conversionError:'',remoteState:'uploading',uploadAttempts:(f.uploadAttempts||0)+1,uploadLeaseUntil:Date.now()+190000});
+  try{const uploaded=await fetch(target,{method:'PUT',body:o.body,headers:{'Content-Length':String(o.size)},redirect:'manual',signal:AbortSignal.timeout(180000)});
+   if(!uploaded.ok){if(uploaded.status>=500||[408,429].includes(uploaded.status))return json(await save(f,{conversionState:'running',remoteState:'upload-check',uploadLeaseUntil:0,conversionError:'上传服务暂时不可用，正在核对原任务；不会直接重复创建解析任务。'}));if(uploaded.status===403)await env.BUCKET.delete(grantKey(f.batchId));return json(await save(f,{conversionState:'failed',remoteState:'upload-failed',uploadLeaseUntil:0,conversionError:'文件上传返回 '+uploaded.status+'；原件已保留，点击重试会先核对原任务。'}));}
+   return json(await save(f,{remoteState:'pending',uploadLeaseUntil:0,conversionError:''}));
+  }catch{console.warn('mineru_transfer_uncertain',{phase:'file-upload',libraryId:f.id});return json(await save(f,{conversionState:'running',remoteState:'upload-check',uploadLeaseUntil:0,conversionError:'文件上传响应超时，正在核对原任务；不会直接重复创建解析任务。'}));}
+ }
  if(action==='libraryConvert'){
   if(f.revision!==b.revision)fail('资料已更新，请刷新',409);if(f.fileKey&&f.conversionState!=='failed')return json(f);if(f.conversionState==='running')return json(f);
-  const local=/^(md|markdown|txt)$/.test(f.format);if(!local&&b.consent!==true)fail('请确认将所选资料发送至 MinerU');const key=local?'':await token(env,uid,get);f=await save(f,{conversionState:'running',conversionError:'',batchId:null,taskId:null,remoteState:'submitting',conversionStartedAt:new Date().toISOString()},'stored');
+  const local=/^(md|markdown|txt)$/.test(f.format);if(!local&&b.consent!==true)fail('请确认将所选资料发送至 MinerU');const key=local?'':await token(env,uid,get);
+  // Recover a known task before creating another one, including pre-fix failed uploads.
+  if(!local&&(f.batchId||f.taskId)){
+   const result=await remoteResult(key);if(!result)fail('原任务状态暂不可用，请稍后刷新；未创建新任务',503);
+   if(!['failed','waiting-file'].includes(result.state))return json(await save(f,{conversionState:'running',remoteState:result.state==='done'?'downloading':result.state,conversionError:'',uploadLeaseUntil:0}));
+   if(result.state==='waiting-file'){const grant=await readGrant();if(grant){f=await save(f,{uploadAttempts:0});return sendFile(grant.url);}}
+   // Only a confirmed failed or never-uploaded task may be replaced on explicit retry.
+  }
+  f=await save(f,{conversionState:'running',conversionError:'',previousBatchId:f.batchId||null,batchId:null,taskId:null,uploadAttempts:0,uploadLeaseUntil:0,remoteState:'submitting',conversionStartedAt:new Date().toISOString()},'stored');
   try{
    if(local){const o=await env.BUCKET.get(f.originalKey);if(!o)fail('原件不存在',404);let text='';try{text=new TextDecoder('utf-8',{fatal:true}).decode(await o.arrayBuffer());}catch{fail('文本文件请使用 UTF-8 编码');}return await finish(text,{origin:'本地文本转换',warnings:[]});}
    if(f.sourceURL){const data=await call(key,'extract/task',{url:publicURL(f.sourceURL),model_version:/\.(pdf|docx?|pptx?|xlsx?|png|jpe?g|webp|bmp|gif|jp2)$/i.test(new URL(f.sourceURL).pathname)?'vlm':'MinerU-HTML',is_ocr:true,enable_table:true,enable_formula:true,data_id:f.id});if(typeof data?.task_id!=='string')throw Error('MinerU 未返回任务标识');return json(await save(f,{taskId:data.task_id,remoteState:'pending',origin:'MinerU',isOCR:true}));}
-   const o=await env.BUCKET.get(f.originalKey);if(!o)fail('原件不存在',404);const d=await call(key,'file-urls/batch',{files:[{name:f.originalName,data_id:f.id,is_ocr:true}],model_version:'vlm',enable_table:true,enable_formula:true,language:'ch'});if(typeof d?.batch_id!=='string'||!Array.isArray(d.file_urls)||d.file_urls.length!==1)throw Error('MinerU 上传响应无效');f=await save(f,{batchId:d.batch_id,origin:'MinerU',isOCR:true,remoteState:'uploading'});const uploaded=await fetch(providerURL(d.file_urls[0]),{method:'PUT',body:await o.arrayBuffer(),redirect:'manual',signal:AbortSignal.timeout(45000)});if(!uploaded.ok)throw Error('MinerU 文件上传失败（'+uploaded.status+'）');return json(await save(f,{remoteState:'pending'}));
-  }catch(e:any){return json(await save(f,{conversionState:'failed',conversionError:String(e.message||'转换失败').slice(0,300)},'stored'));}
+   const d=await call(key,'file-urls/batch',{files:[{name:f.originalName,data_id:f.id,is_ocr:true}],model_version:'vlm',enable_table:true,enable_formula:true,language:'ch'});if(typeof d?.batch_id!=='string'||!Array.isArray(d.file_urls)||d.file_urls.length!==1)throw Error('MinerU 上传响应无效');const target=providerURL(d.file_urls[0]);
+   await env.BUCKET.put(grantKey(d.batch_id),JSON.stringify({url:target,expires:Date.now()+23*3600000}));f=await save(f,{batchId:d.batch_id,origin:'MinerU',isOCR:true,remoteState:'uploading'});return await sendFile(target);
+  }catch(e:any){return json(await save(f,{conversionState:'failed',conversionError:String(e.message||'提交失败，请稍后重试').slice(0,300)},'stored'));}
  }
  if(action==='libraryConvertPoll'){
-  if(f.conversionState!=='running')return json(f);if(!f.batchId&&!f.taskId){if(Date.now()-Date.parse(f.conversionStartedAt)>180000)return json(await save(f,{conversionState:'failed',conversionError:'提交中断，请重试；重试可能重复计入 MinerU 用量。'}));return json(f);}
-  const key=await token(env,uid,get);const data=await call(key,f.batchId?'extract-results/batch/'+encodeURIComponent(f.batchId):'extract/task/'+encodeURIComponent(f.taskId));const result=f.batchId?data?.extract_result?.find((x:R)=>x.data_id===f.id||x.file_name===f.originalName):data;if(!result)return json(f);if(result.state==='failed')return json(await save(f,{conversionState:'failed',conversionError:'MinerU 解析失败，请检查文件格式、页数及额度后重试。',remoteState:'failed'}));
-  if(result.state!=='done')return json(await save(f,{remoteState:String(result.state).slice(0,30),conversionProgress:result.extract_progress||null}));
+  if(f.conversionState!=='running'&&!(f.batchId&&/upload|waiting-file/.test(f.remoteState||'')))return json(f);if(!f.batchId&&!f.taskId){if(Date.now()-Date.parse(f.conversionStartedAt)>180000)return json(await save(f,{conversionState:'failed',conversionError:'提交中断，请重试；重试可能重复计入 MinerU 用量。'}));return json(f);}
+  const key=await token(env,uid,get);const result=await remoteResult(key);if(!result)return json(f);
+  if(result.state==='failed')return json(await save(f,{conversionState:'failed',conversionError:'MinerU 解析失败，请检查文件格式、页数及额度后重试。',remoteState:'failed',uploadLeaseUntil:0}));
+  if(result.state==='waiting-file'){
+   if(Number(f.uploadLeaseUntil)>Date.now())return json(f);
+   const grant=await readGrant();if(grant&&f.remoteState==='upload-check'&&(f.uploadAttempts||0)<2)return sendFile(grant.url);
+   return json(await save(f,{conversionState:'failed',remoteState:'waiting-file',recoveryCheckedAt:new Date().toISOString(),uploadLeaseUntil:0,conversionError:'文件尚未完成上传，解析未开始。原件已保留，点击重试解析可继续，无需重新上传原件。'}));
+  }
+  if(result.state!=='done')return json(await save(f,{conversionState:'running',conversionError:'',uploadLeaseUntil:0,remoteState:String(result.state).slice(0,30),conversionProgress:result.extract_progress||null}));
+  f=await save(f,{conversionState:'running',remoteState:'downloading',conversionError:'',uploadLeaseUntil:0});
   // Only provider-supplied HTTPS storage URLs are fetched; never send Authorization to storage.
-  try{const zip=await bounded(await fetch(providerURL(result.full_zip_url),{redirect:'manual',signal:AbortSignal.timeout(45000)}),MAX);let size=0,count=0;const files=unzipSync(zip,{filter:e=>{size+=e.originalSize;if(++count>1500||size>40*1024*1024||e.originalSize>10*1024*1024||e.name.split('/').includes('..')||e.name.startsWith('/'))throw Error('转换包过大或路径无效，请拆分资料');return /\.(md|json|html|png|jpe?g|webp|gif)$/i.test(e.name);}});const names=Object.keys(files),md=names.find(n=>/(^|\/)full\.md$/.test(n))||names.find(n=>n.endsWith('.md'));if(!md)throw Error('转换包缺少 Markdown');const assets:R[]=[];let markdown=strFromU8(files[md]);for(const name of names.filter(n=>/\.(png|jpe?g|webp|gif)$/i.test(n))){const id=String(assets.length),assetKey='library/'+uid+'/'+f.id+'/assets/'+crypto.randomUUID(),mime=/\.png$/i.test(name)?'image/png':/\.webp$/i.test(name)?'image/webp':/\.gif$/i.test(name)?'image/gif':'image/jpeg';await env.BUCKET.put(assetKey,files[name]);assets.push({id,key:assetKey,name,mime});const relative=name.startsWith(md.slice(0,md.lastIndexOf('/')+1))?name.slice(md.lastIndexOf('/')+1):name;markdown=markdown.split(']('+relative+')').join('](/api/studio/libraryAsset/'+f.id+'/'+id+')');}
+  try{const zip=await bounded(await fetch(providerURL(result.full_zip_url),{redirect:'manual',signal:AbortSignal.timeout(180000)}),MAX);let size=0,count=0;const files=unzipSync(zip,{filter:e=>{size+=e.originalSize;if(++count>1500||size>40*1024*1024||e.originalSize>10*1024*1024||e.name.split('/').includes('..')||e.name.startsWith('/'))throw Error('转换包过大或路径无效，请拆分资料');return /\.(md|json|html|png|jpe?g|webp|gif)$/i.test(e.name);}});const names=Object.keys(files),md=names.find(n=>/(^|\/)full\.md$/.test(n))||names.find(n=>n.endsWith('.md'));if(!md)throw Error('转换包缺少 Markdown');const assets:R[]=[];let markdown=strFromU8(files[md]);for(const name of names.filter(n=>/\.(png|jpe?g|webp|gif)$/i.test(n))){const id=String(assets.length),assetKey='library/'+uid+'/'+f.id+'/assets/'+crypto.randomUUID(),mime=/\.png$/i.test(name)?'image/png':/\.webp$/i.test(name)?'image/webp':/\.gif$/i.test(name)?'image/gif':'image/jpeg';await env.BUCKET.put(assetKey,files[name]);assets.push({id,key:assetKey,name,mime});const relative=name.startsWith(md.slice(0,md.lastIndexOf('/')+1))?name.slice(md.lastIndexOf('/')+1):name;markdown=markdown.split(']('+relative+')').join('](/api/studio/libraryAsset/'+f.id+'/'+id+')');}
    const artifactKey='library/'+uid+'/'+f.id+'/result-'+crypto.randomUUID()+'.zip';await env.BUCKET.put(artifactKey,zip);return await finish(markdown,{origin:'MinerU',assets,artifactKey,warnings:['OCR、表格和阅读顺序可能有误，请对照原件核对。页码与版面定位以原始结果包中的 JSON 为准；本系统未生成逐字置信度。',...(f.sourceURL?['网页为转换时抓取的快照，可能与当前页面不同。']:[])]});
-  }catch(e:any){return json(await save(f,{conversionState:'failed',conversionError:String(e.message||'结果保存失败').slice(0,300)}));}
+  }catch(e:any){const transient=['AbortError','TimeoutError','TypeError'].includes(e.name);return json(await save(f,{conversionState:transient?'running':'failed',remoteState:'download-retry',conversionError:transient?'解析已完成，结果下载暂时中断，系统会重试取回原结果。':String(e.message||'结果保存失败').slice(0,300)}));}
  }
  return fail('接口不存在',404);
 }
