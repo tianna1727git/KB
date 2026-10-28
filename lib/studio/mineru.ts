@@ -8,8 +8,21 @@ async function bounded(r:Response,max:number){if(!r.ok)throw Error('远程服务
 async function storageKey(env:R){if(!/^[a-f0-9]{64}$/.test(env.MODEL_SETTINGS_ENCRYPTION_KEY||''))throw Error('安全存储尚未就绪，请联系管理员');return crypto.subtle.importKey('raw',Uint8Array.from(env.MODEL_SETTINGS_ENCRYPTION_KEY.match(/../g), (x:any)=>parseInt(x,16)),{name:'AES-GCM'},false,['encrypt','decrypt']);}
 async function token(env:R,uid:string,get:Function){let c;try{c=await get('mineru-settings:'+uid,'mineruSettings');}catch(e:any){if(e.code!==404)throw e;}if(c?.enabled){try{return new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:new Uint8Array(c.iv),additionalData:enc.encode('mineru:'+uid)},await storageKey(env),new Uint8Array(c.ciphertext)));}catch{throw Error('无法读取 MinerU Token，请在配置区重新保存');}}if(env.MINERU_TOKEN)return env.MINERU_TOKEN;throw Error('请先配置 MinerU Token');}
 async function call(key:string,path:string,body?:R){let r:Response;try{r=await fetch('https://mineru.net/api/v4/'+path,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined,redirect:'manual',signal:AbortSignal.timeout(35000)});}catch{throw Error('MinerU 连接超时或不可用，请稍后刷新进度');}const bytes=await bounded(r,1024*1024);let j;try{j=JSON.parse(new TextDecoder().decode(bytes));}catch{throw Error('MinerU 响应格式无效');}if(j.code!==0)throw Error('MinerU 请求失败（'+String(j.code).replace(/[^\w-]/g,'').slice(0,24)+'），请检查 Token、额度及文件格式');return j.data;}
-export async function mineruAPI(req:Request,env:R,ctx:R){const {get,list,create,save,uid,fail,json}=ctx;const url=new URL(req.url),[action,rid,part]=url.pathname.replace('/api/studio/','').split('/');
+export async function mineruAPI(req:Request,env:R,ctx:R):Promise<Response>{const {get,list,create,save,uid,fail,json}=ctx;const url=new URL(req.url),[action,rid,part]=url.pathname.replace('/api/studio/','').split('/');
  const meta=async()=>{let c;try{c=await get('mineru-settings:'+uid,'mineruSettings');}catch(e:any){if(e.code!==404)throw e;}return {configured:!!c?.enabled||!!env.MINERU_TOKEN,hasSavedToken:!!c?.ciphertext,revision:c?.revision||0,storageReady:/^[a-f0-9]{64}$/.test(env.MODEL_SETTINGS_ENCRYPTION_KEY||''),deploymentConfigured:!!env.MINERU_TOKEN};};
+ if(action==='librarySubmit'){
+  if(req.method!=='POST')fail('请求方法无效',405);
+  const formRequest=(req.headers.get('content-type')||'').includes('multipart/form-data');let local=false,consent=false;
+  if(formRequest){const form=await req.clone().formData(),file=form.get('file');if(!(file instanceof File))fail('请选择文件');local=/\.(md|markdown|txt)$/i.test((file as File).name);consent=form.get('consent')==='true';}
+  else{const b:any=await req.clone().json();consent=b.consent===true;}
+  if(!local){if(!consent)fail('请确认提交后由 MinerU 自动解析');await token(env,uid,get);}
+  const target=new URL('/api/studio/'+(formRequest?'libraryRawUpload':'libraryURL'),req.url);
+  const created=await mineruAPI(new Request(target,req),env,ctx);if(!created.ok)return created;
+  const data:any=await created.json(),f=data.file;
+  if(f.fileKey||f.conversionState==='running')return json({...data,submitted:true});
+  const converted=await mineruAPI(new Request(new URL('/api/studio/libraryConvert',req.url),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:f.id,revision:f.revision,consent:true})}),env,ctx);
+  if(!converted.ok)return converted;return json({...data,file:await converted.json(),submitted:true});
+ }
  if(action==='mineruSettings'){
   if(req.method==='GET')return json(await meta());if(req.method!=='POST')fail('请求方法无效',405);const raw=await req.text();if(raw.length>6000)fail('配置内容过长');const b=JSON.parse(raw),m=await meta();if(b.revision!==m.revision)fail('配置已更新，请刷新',409);if(b.consent!==true)fail('请确认授权 MinerU 处理所选资料');const value=String(b.token||'').trim();if(value.length<16||value.length>4096||/\s/.test(value))fail('请填写有效的 MinerU Token');const iv=crypto.getRandomValues(new Uint8Array(12)),encrypted=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:enc.encode('mineru:'+uid)},await storageKey(env),enc.encode(value));const time=new Date().toISOString();const res=await env.DB.prepare("INSERT INTO studio_records(id,kind,owner,state,revision,payload,created,updated) VALUES(?,'mineruSettings',?,'saved',1,?,?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload,revision=studio_records.revision+1,updated=excluded.updated WHERE studio_records.owner=excluded.owner AND studio_records.revision=?").bind('mineru-settings:'+uid,uid,JSON.stringify({iv:Array.from(iv),ciphertext:Array.from(new Uint8Array(encrypted)),enabled:true}),time,time,m.revision).run();if(res.meta.changes!==1)fail('配置已更新，请刷新',409);return json(await meta());
  }
@@ -53,5 +66,5 @@ export async function mineruAPI(req:Request,env:R,ctx:R){const {get,list,create,
    const artifactKey='library/'+uid+'/'+f.id+'/result-'+crypto.randomUUID()+'.zip';await env.BUCKET.put(artifactKey,zip);return await finish(markdown,{origin:'MinerU',assets,artifactKey,warnings:['OCR、表格和阅读顺序可能有误，请对照原件核对。页码与版面定位以原始结果包中的 JSON 为准；本系统未生成逐字置信度。',...(f.sourceURL?['网页为转换时抓取的快照，可能与当前页面不同。']:[])]});
   }catch(e:any){return json(await save(f,{conversionState:'failed',conversionError:String(e.message||'结果保存失败').slice(0,300)}));}
  }
- fail('接口不存在',404);
+ return fail('接口不存在',404);
 }
