@@ -1,3 +1,4 @@
+import {mineruAPI} from './mineru';
 import {demoKBAPI} from './demo-kb.mjs';
 import {modelSettingsAPI,resolveModelEnv} from './model-settings';
 import {knowledgePacketAPI} from './knowledge-packet.mjs';
@@ -27,6 +28,7 @@ export async function api(req:Request,env:any){try{
  async function create(kind:string,p:R,state='draft'){const rid=id(),t=now();await env.DB.prepare('INSERT INTO studio_records(id,kind,owner,state,revision,payload,created,updated) VALUES(?,?,?,?,1,?,?,?)').bind(rid,kind,uid,state,JSON.stringify(p),t,t).run();return get(rid);}
  async function save(r:R,p:R,state=r.state){const res=await env.DB.prepare('UPDATE studio_records SET payload=?,state=?,revision=revision+1,updated=? WHERE id=? AND owner=? AND revision=?').bind(JSON.stringify({...r,...p}),state,now(),r.id,uid,r.revision).run();if(res.meta.changes!==1)fail('内容已更新，请刷新后重试',409);return get(r.id);}
  const path=new URL(req.url).pathname.replace('/api/studio/','').split('/'),action=path[0];
+ if(['mineruSettings','libraryRawUpload','libraryURL','libraryConvert','libraryConvertPoll','libraryMarkdownSave','libraryAsset','libraryVersions'].includes(action))return await mineruAPI(req,env,{get,list,save,create,fail,json,uid});
  if(action.startsWith('demoKb'))return await demoKBAPI(req,env,{get,list,save,create,fail,json,uid,email,captureDraft,persistDraft});
  if(action==='knowledgePacketExport'||action==='knowledgePacketImport')return await knowledgePacketAPI(req,env,{get,list,save,fail,json});
  if(action==='run'){const b:any=await req.clone().json();const t=await get(b.id,'task');if(t.demoFlow)fail('Demo 保持 Codex 人工交接，请使用任务包。',409);}
@@ -52,10 +54,11 @@ export async function api(req:Request,env:any){try{
  }
  if(req.method==='GET'){
  if(action==='library'){
- if(!path[1]){const stored=await list('library'),documents=await docs();return json({files:[...stored.filter((f:R)=>!documents.some((d:R)=>d.hash===f.sha256)).map(({fileKey,...f}:R)=>f),...documents.map((d:R)=>({...d,path:d.name,title:d.name.replace(/\.(md|markdown)$/i,''),size:new TextEncoder().encode(d.markdown).length,isDocument:true}))],total:email.toLowerCase()==='tianna1727@gmail.com'?libraryFiles.length:0,seedCount:stored.filter((f:R)=>f.collection==='ProductMarketingChina').length});}
- const f=await get(path[1],'library'),stored=await env.BUCKET.get(f.fileKey);if(!stored)fail('原文件不存在',404);
- if(path[2]==='original'){if(!f.originalKey)fail('无独立原始文件',404);const original=await env.BUCKET.get(f.originalKey);if(!original)fail('原始文件不存在',404);return new Response(original.body,{headers:{'Content-Type':'application/octet-stream','Content-Disposition':"attachment; filename*=UTF-8''"+encodeURIComponent(f.originalName),'Cache-Control':'private, no-store'}});}
- if(path[2]==='download')return new Response(stored.body,{headers:{'Content-Type':'text/markdown;charset=utf-8','Content-Disposition':"attachment; filename*=UTF-8''"+encodeURIComponent(f.name),'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
+ if(!path[1]){const stored=await list('library'),documents=await docs();return json({files:[...stored.filter((f:R)=>f.conversionState||!documents.some((d:R)=>d.hash===f.sha256)).map(({fileKey,...f}:R)=>({...f,semantic:documents.some((d:R)=>d.hash===f.sha256&&d.semantic),documentId:documents.find((d:R)=>d.hash===f.sha256&&d.semantic)?.id})),...documents.filter((d:R)=>!stored.some((f:R)=>f.conversionState&&(f.id===d.libraryId||f.sha256===d.hash))).map((d:R)=>({...d,path:d.name,title:d.name.replace(/\.(md|markdown)$/i,''),size:new TextEncoder().encode(d.markdown).length,isDocument:true}))],total:email.toLowerCase()==='tianna1727@gmail.com'?libraryFiles.length:0,seedCount:stored.filter((f:R)=>f.collection==='ProductMarketingChina').length});}
+ const f=await get(path[1],'library');
+ if(path[2]==='original'||path[2]==='result'){const key=path[2]==='result'?f.artifactKey:f.originalKey;if(!key)fail('文件不存在',404);const original=await env.BUCKET.get(key);if(!original)fail('文件不存在',404);return new Response(original.body,{headers:{'Content-Type':path[2]==='result'?'application/zip':'application/octet-stream','Content-Disposition':"attachment; filename*=UTF-8''"+encodeURIComponent(path[2]==='result'?'MinerU-result.zip':f.originalName),'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});}
+ if(!f.fileKey){if(path[2])fail('请先转换为 Markdown',409);return json({...f,markdown:''});}const stored=await env.BUCKET.get(f.fileKey);if(!stored)fail('Markdown 不存在',404);
+ if(path[2]==='download')return new Response(stored.body,{headers:{'Content-Type':'text/markdown;charset=utf-8','Content-Disposition':"attachment; filename*=UTF-8''"+encodeURIComponent(/\.(md|markdown)$/i.test(f.name)?f.name:f.name.replace(/\.[^.]+$/,'')+'.md'),'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
  return json({...f,markdown:await stored.text()});
  }
  if(action==='demoState'){const documents=(await docs()).map(({markdown,...d}:R)=>d);return json({config:{model:false,manual:true},files:(await list('library')).map(({fileKey,originalKey,...f}:R)=>({...f,document:documents.filter((d:R)=>d.hash===f.sha256&&!d.supersededBy).sort((a:R,b:R)=>(b.sourceVersion||1)-(a.sourceVersion||1))[0]||null})),tasks:(await list('task')).filter((t:R)=>t.demoFlow),documents});}
