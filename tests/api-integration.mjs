@@ -1,13 +1,14 @@
+import {catalog,catalogPlugin} from './catalog-fixture.mjs';
 import {zipSync,strToU8} from 'fflate';
 import {Miniflare,createFetchMock} from 'miniflare';import {build} from 'esbuild';import {readFileSync,mkdirSync,readdirSync} from 'node:fs';import assert from 'node:assert/strict';
-mkdirSync('.sites-runtime/tests',{recursive:true});await build({entryPoints:['tests/worker.ts'],bundle:true,format:'esm',platform:'browser',target:'es2022',outfile:'.sites-runtime/tests/api.mjs'});
+mkdirSync('.sites-runtime/tests',{recursive:true});await build({plugins:[catalogPlugin],entryPoints:['tests/worker.ts'],bundle:true,format:'esm',platform:'browser',target:'es2022',outfile:'.sites-runtime/tests/api.mjs'});
 const mock=createFetchMock();mock.disableNetConnect();const endpoint=mock.get('https://model.test');for(const output of [{intent:'面向中国跨境卖家的拉美入门指南',queries:['拉美市场','巴西资格']},{title:'拉美跨境101',outline:'# 拉美跨境101\n\n## 市场概览[S1]\n\n## 适用条件[S2]',missing:['缺少最新市场规模数据']},{title:'拉美跨境101',markdown:'拉美市场的经营准备需要结合本地情况。[S1]\n\n仅限已审核客户，资格与费率以正式协议为准。[S2]',seoTitle:'拉美跨境电商入门指南',metaDescription:'准备进入拉美市场的基础问题。',slug:'latam-cross-border-101',missing:[]},{summary:'请检查表述是否与原文一致',issues:[{severity:'medium',quote:'拉美市场的经营准备需要结合本地情况。',reason:'需补充具体准备事项',suggestion:'补充有依据的步骤'}],missing:[]}])endpoint.intercept({path:'/chat',method:'POST'}).reply(200,JSON.stringify({choices:[{message:{content:JSON.stringify(output)}}]}));
 const mf=new Miniflare({modules:true,scriptPath:'.sites-runtime/tests/api.mjs',compatibilityDate:'2026-05-15',compatibilityFlags:['nodejs_compat'],d1Databases:['DB'],r2Buckets:['BUCKET'],bindings:{AI_URL:'https://model.test/chat',AI_MODEL:'fixture'},fetchMock:mock});
 const identity={'oai-authenticated-user-id':'owner','oai-authenticated-user-email':'tianna1727@gmail.com'},other={'oai-authenticated-user-id':'other','oai-authenticated-user-email':'other@example.com'};
 async function req(path,body,headers=identity){let payload;if(body instanceof FormData){const r=new Request('https://test',{method:'POST',body});headers={...headers,'content-type':r.headers.get('content-type')};payload=await r.arrayBuffer();}else if(body){payload=JSON.stringify(body);headers={...headers,'content-type':'application/json'};}const r=await mf.dispatchFetch('https://studio.test/api/studio/'+path,{method:body?'POST':'GET',headers,body:payload});return {r,j:await r.json()};}
 try{const db=await mf.getD1Database('DB');for(const f of readdirSync('drizzle').filter(f=>f.endsWith('.sql')))await db.exec(readFileSync('drizzle/'+f,'utf8').replace(/--> statement-breakpoint/g,'').replace(/\n/g,' '));
  assert.equal((await req('state',null,{})).r.status,401);assert.equal((await req('state')).j.tasks.length,0);
- const catalog=JSON.parse(readFileSync('lib/studio/library-data.json','utf8'));assert.equal(catalog.length,160);
+ assert.equal(catalog.length,160);
  assert.equal((await req('libraryImport',{offset:0},other)).r.status,403);
  for(let offset=0;offset<catalog.length;offset+=10){const result=await req('libraryImport',{offset});assert.equal(result.r.status,200);assert.equal(result.j.next,Math.min(offset+10,catalog.length));}
  let library=(await req('library')).j;assert.equal(library.files.length,160);assert.equal(library.total,160);assert.equal((await req('libraryImport',{offset:0})).j.added,0);
