@@ -2,11 +2,13 @@
 import {useState} from 'react';
 import {ArrowLeft,Check,RefreshCw,Sparkles,AlertCircle,BookOpen,ShieldCheck,Download,Save} from 'lucide-react';
 import {TitleSelection,ArticleBatch} from './title-selection';
+import {PublishingDialog} from './publishing';
 import {ArticleCanvas} from './article-canvas';
 import {ArticleOutput} from './article-output';
 import {DraftHistory} from './writing-sources';
 type R=Record<string,any>;
 export function WritingWorkspace({task,busy,modelReady,auto,title,body,onTitle,onBody,onBack,onSettings,onLibrary,onContinue,onRestart,onSave,onComplete,onRevision,onDocument,onUpdate,onOpenTask}:R){
+ const [publishing,setPublishing]=useState(false);
  const [confirmed,setConfirmed]=useState(false),[editing,setEditing]=useState(false),[localError,setLocalError]=useState('');
  const ready=['check','review','done'].includes(task.stage)&&!!task.markdown,review=task.stage==='review',done=task.stage==='done',changed=title!==task.title||body!==task.markdown;
  const choosing=task.stage==='titles',batch=task.stage==='batch';
@@ -15,8 +17,9 @@ export function WritingWorkspace({task,busy,modelReady,auto,title,body,onTitle,o
  const phase=task.stage==='outline'?1:task.stage==='revise'?2:Math.max(0,phases.findIndex(([key])=>key===task.stage));
  const legacyReferenceBlock=/未找到能够核实所选素材的公开参考引用|没有核实通过的公开参考引用/.test(task.error||'');
  const blocked=task.state==='failed'||!!task.error||!!task.stale?.length||!modelReady||task.stage==='sources'&&!auto;
+ async function goPublish(){setLocalError('');try{if(!done){const r=await fetch('/api/studio/complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:task.id,revision:task.revision,confirmed})});const result=await r.json();if(!r.ok)throw Error(result.error||'审核失败');onUpdate(result);}setPublishing(true);}catch(e:any){setLocalError(e.message);}}
  async function action(fn:()=>Promise<any>){setLocalError('');try{await fn();}catch(e:any){setLocalError(e.message);}}
- return <><button className="text-btn back" onClick={onBack}><ArrowLeft size={15}/>返回内容生产工作台</button>
+ return <>{publishing&&<PublishingDialog task={task} onClose={()=>setPublishing(false)}/>}<button className="text-btn back" onClick={onBack}><ArrowLeft size={15}/>返回内容生产工作台</button>
   <header className="page-heading"><div><h1>{task.title||task.keyword}</h1><p>{task.platform} · {task.audience}</p></div><span className={'writing-status '+(blocked?'blocked':'')}>{choosing?'请选择标题':batch?'批量生成':done?'已审核，可导出':review?'待人工审核':blocked?'需要处理':task.state==='running'?'正在生成':'准备生成'}</span></header>
   <nav className="writing-journey" aria-label="文章生产流程">{stages.map((label,i)=><div key={label} className={i<position?'finished':i===position?'current':''} aria-current={i===position?'step':undefined}><span>{i<position?<Check size={14}/>:i+1}</span><b>{label}</b></div>)}</nav>
   <div className="writing-summary"><span>关键词 <b>{task.keyword}</b></span><span>发文平台 <b>官网</b></span><span>输出 <b>排版文稿 / HTML / Markdown</b></span></div>
@@ -30,7 +33,7 @@ export function WritingWorkspace({task,busy,modelReady,auto,title,body,onTitle,o
    {task.error&&<p className="banner error" role="alert">{task.error}</p>}{task.stale?.length>0&&<p className="banner error" role="alert">参考来源已变化：{task.stale.join('、')}。请重新生成。</p>}
    {editing&&!done&&<div className="writing-editor"><label className="field"><span>文章标题</span><input aria-label="文章标题" value={title} maxLength={200} onChange={e=>{onTitle(e.target.value);setConfirmed(false);}}/></label><label className="field"><span>文章正文（Markdown）</span><textarea aria-label="文章正文" className="body-editor" value={body} onChange={e=>{onBody(e.target.value);setConfirmed(false);}}/></label><button className="primary" disabled={busy||!changed} onClick={()=>action(onSave)}><Save size={15}/>保存修改并重新检查</button></div>}
    {body?.trim()&&(done?<ArticleOutput task={task} markdown={body} title={title} allowExport={true}/>:<ArticleCanvas task={{...task,markdown:body,title}} disabled={busy||!modelReady||changed} onUpdate={onUpdate}/>)}
-   {review&&<div className="human-review"><h3><ShieldCheck size={18}/>确认审核</h3><label className="check-label"><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)} disabled={changed||busy}/>我已核对正文、公开引用及适用条件，并处理待补充项</label><div className="actions">{!!task.issues?.length&&<button disabled={busy||changed||task.round>=2} onClick={()=>action(onRevision)}><RefreshCw size={15}/>按检查意见修改</button>}<button className="primary" disabled={busy||changed||!confirmed||!!task.stale?.length} onClick={()=>action(()=>onComplete(confirmed))}><Check size={15}/>确认审核，进入导出</button></div></div>}
+   {done&&<div className="human-review"><button className="primary" disabled={busy||changed||!!task.stale?.length} onClick={goPublish}>去发布</button></div>}{review&&<div className="human-review"><h3><ShieldCheck size={18}/>确认审核</h3><label className="check-label"><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)} disabled={changed||busy}/>我已核对正文、公开引用及适用条件，并处理待补充项</label><div className="actions">{!!task.issues?.length&&<button disabled={busy||changed||task.round>=2} onClick={()=>action(onRevision)}><RefreshCw size={15}/>按检查意见修改</button>}<button className="primary" disabled={busy||changed||!confirmed||!!task.stale?.length} onClick={()=>action(()=>onComplete(confirmed))}><Check size={15}/>确认审核，进入导出</button><button disabled={busy||changed||!confirmed||!!task.stale?.length} onClick={goPublish}>去发布</button></div></div>}
   </section><aside className="writing-review-aside canvas-checks"><details className="panel"><summary>检查结果{task.issues?.length?' · '+task.issues.length+' 项':''}</summary><p>{task.checkSummary||'检查中…'}</p>{(task.issues||[]).map((issue:R,i:number)=><div className="writing-review-issue" key={i}><b>{issue.reason}</b><p>{issue.suggestion}</p></div>)}{(task.missing||[]).map((line:string,i:number)=><p className="risk-note" key={i}>{line}</p>)}</details></aside></div>}
   <details className="panel writing-details"><summary>生成记录与历史版本</summary><div>{(task.events||[]).map((e:R,i:number)=><p key={i}><b>{e.name}</b> · {e.detail||'结果已保存'} {e.time&&new Date(e.time).toLocaleString('zh-CN')}</p>)}{task.parentTaskId&&<button onClick={()=>onOpenTask(task.parentTaskId)}>返回本次文稿</button>}{task.outline&&<details><summary>生成的大纲</summary><pre>{task.outline}</pre></details>}<button disabled={busy||!!task.demoFlow} onClick={()=>{if(window.confirm('重新生成会保留历史版本，是否继续？'))action(onRestart);}}><RefreshCw size={14}/>重新生成</button></div><DraftHistory task={task}/></details>
  </>;

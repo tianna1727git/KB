@@ -1,3 +1,4 @@
+import {publicationPackage} from './publishing.mjs';
 import {titleOptions,TITLE_FORMAT} from './title-options.mjs';
 import {normalizeOutline,OUTLINE_FORMAT} from './outline.mjs';
 import {revisionRange,replaceRange} from './text-revision.mjs';
@@ -125,6 +126,24 @@ export async function api(req:Request,env:any){try{
  const d=await create('document',{familyId:previous?.familyId||previous?.id||null,previousId:previous?.id||null,sourceVersion:previous?(previous.sourceVersion||1)+1:1,name:file.name,markdown,hash:digest,fileKey,category,purpose,source,region,effective,expires,usageScope:validUsageScope(form.get('usageScope'))?form.get('usageScope'):'writing',referenceURL:form.get('usageScope')==='reference'?publicReferenceURL(source):'',external:form.get('external')==='true',coverage:true,events:[{name:'Markdown上传',state:'complete',time:now()},{name:'结构切片与原文比对',state:'complete',time:now()},{name:'风险确认',state:'waiting'}]},'review');
  for(const c of slices)await create('chunk',{...classifyKnowledge(c.body,c.title),...c,docId:d.id,docRevision:d.revision,category,purpose,region,external:d.external,keywords:[],originalBody:c.body},'pending');return json({document:d,count:slices.length});}
  const b:any=await req.json();
+ if(action==='publicationPrepare'||action==='publicationSave'){
+ const t=await get(b.id,'task');if(t.revision!==b.revision)fail('文章已更新，请刷新后交接',409);
+ if(t.stage!=='done'||!t.approvedAt)fail('请先完成人工审核',409);
+ const current=await taskView(t);if(current.stale.length)fail('素材或引用已变化，请重新核实',409);
+ citationCheck(t.markdown,t.evidence||[],t.materials||[]);validateArticleLinks(t.markdown,t.evidence||[],t.ctas||[]);
+ const rid='publication:'+t.id+':'+t.revision;let record=null;try{record=await get(rid,'publication');}catch(e:any){if(e.code!==404)throw e;}
+ const input=action==='publicationSave'?b.fields||{}:record?.input||{};
+ if(!input||typeof input!=='object'||Array.isArray(input)||JSON.stringify(input).length>15000)fail('发布字段格式无效');
+ const allowed=['slug','desc','metaTitle','category','tags','coverImage','authorAvatar','authorName','authorIntro','publishTime','readDuration'];
+ const clean=Object.fromEntries(Object.entries(input).filter(([key])=>allowed.includes(key)));
+ const packet=publicationPackage(t,clean);
+ if(action==='publicationSave'){
+ const payload={taskId:t.id,taskRevision:t.revision,title:t.title,input:clean,packet,environment:'stage',externalRecordId:null,verifiedAt:null};
+ if(record){if(b.handoffRevision!==record.revision)fail('交接内容已更新，请重新打开',409);record=await save(record,payload,'awaiting_stage_api');}
+ else {const stamp=now();const inserted=await env.DB.prepare('INSERT OR IGNORE INTO studio_records(id,kind,owner,state,revision,payload,created,updated) VALUES(?,?,?,?,1,?,?,?)').bind(rid,'publication',uid,'awaiting_stage_api',JSON.stringify(payload),stamp,stamp).run();if(inserted.meta.changes!==1)fail('交接已保存，请重新打开',409);record=await get(rid,'publication');}
+ }
+ return json({packet,record,connection:{configured:false,environment:'stage',status:'awaiting_stage_api'}});
+ }
  if(action==='articleOutput'){const t=await get(b.id,'task');if(t.revision!==b.revision)fail('文章已更新，请刷新后复制或下载',409);const current=await taskView(t);if(current.stale.length||(t.evidence||[]).some((e:R)=>!isPublicEvidence(e)))fail('公开来源或CTA已变化，请重新核实后输出',409);const markdown=b.markdown??t.markdown,title=b.title??t.title;if(typeof markdown!=='string'||!markdown.trim()||markdown.length>60000||typeof title!=='string'||!title.trim()||title.length>200)fail('文稿格式无效');citationCheck(markdown,t.evidence,t.materials||[]);validateArticleLinks(markdown,t.evidence,t.ctas||[]);const article={...t,markdown,title};return json({markdown:articleMarkdown(article),html:articleHTML(article),fragment:articleHTML(article,{fragment:true})});}
  if(action==='knowledgeImport'){
  const f=await get(b.id,'library'),existing=(await docs()).filter((d:R)=>d.hash===f.sha256&&!d.supersededBy).sort((a:R,b:R)=>(b.sourceVersion||1)-(a.sourceVersion||1))[0];if(existing?.semantic)return json({document:existing,duplicate:true});if(existing&&(!existing.libraryId||(await list('chunk')).filter((k:R)=>k.docId===existing.id).length>=splitMarkdown(existing.markdown).length))return json({document:existing,duplicate:true});const file=await env.BUCKET.get(f.fileKey);if(!file)fail('原文件不存在',404);const markdown=await file.text(),slices=splitMarkdown(markdown);if(slices.length>500)fail('资料超过500个章节，请拆分后整理');if(!coverage(markdown,slices))fail('原文覆盖检查失败');const suggested:R=classifyKnowledge(markdown,f.name),category=suggested.type==='市场研究'?'市场研究':/法务|legal|guideline/i.test(f.name)?'法务':'产品',purpose=category==='法务'?'rule':'fact';
