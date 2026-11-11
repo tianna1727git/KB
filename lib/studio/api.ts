@@ -1,3 +1,4 @@
+import {normalizeOutline,OUTLINE_FORMAT} from './outline.mjs';
 import {revisionRange,replaceRange} from './text-revision.mjs';
 import {insightsAPI} from './insights-api.mjs';
 import {SEO_RULES,writingContext,CONTENT_PLATFORMS} from './content-rules.mjs';
@@ -198,7 +199,7 @@ export async function api(req:Request,env:any){try{
  if(!found.length&&!t.insightContext?.length)throw Error('没有找到相关的可用写作素材，请补充资料或修改关键词');
  const ds=await docs();const snap=(k:R)=>({id:k.id,revision:k.revision,docId:k.docId,docRevision:k.docRevision,title:k.title,body:k.body,originalBody:k.originalBody,statement:k.statement,purpose:k.purpose,heading:k.heading,region:k.region,source:ds.find((d:R)=>d.id===k.docId)?.source,sourceVersion:ds.find((d:R)=>d.id===k.docId)?.sourceVersion||1,type:k.type,products:k.products,platforms:k.platforms,start:k.start,end:k.end,...sourceUsage(ds.find((d:R)=>d.id===k.docId)),usageRevision:k.usageRevision});const materials=[...found.map(snap),...t.insightContext||[]].map((m:R,i:number)=>({...m,materialRef:'M'+(i+1)})),resolved=await resolvePublicEvidence(materials,[...all.map(snap),...t.insightContext||[]],await referencePolicy(),env),evidence=resolved.evidence,ruleSnaps=rules.map(snap);
  const ctas=await getCTACandidates(t.keyword);const context={...writingContext({...t,ctaCandidates:ctas}),intent:plan.intent,platform:t.platform,audience:t.audience,description:t.description,writingRules:t.writingRules||'',evidence,materials,rules:ruleSnaps};if(JSON.stringify(context).length>100000)throw Error('知识上下文超过上限，请缩小主题或整理资料。');
- const outline:any=await modelJSON(env,messages('研究策划 Agent',context,'{title:string,outline:string（Markdown大纲，依据写作素材组织内容；素材标记[M1]仅供内部溯源，公开引用[S1]可选）,missing:string[]}'),3000);if(typeof outline.title!=='string'||typeof outline.outline!=='string'||!outline.outline.trim()||outline.outline.length>10000||!Array.isArray(outline.missing))throw Error('大纲格式无效');citationCheck(outline.outline,evidence,materials);
+ const outline=normalizeOutline(await modelJSON(env,messages('研究策划 Agent',context,OUTLINE_FORMAT),3000),t.keyword);citationCheck(outline.outline,evidence,materials);
  await save(t,{title:outline.title.slice(0,200),intent:plan.intent,ctaCandidates:ctas,queries,evidence,materials,referencePolicy:await referencePolicy(),omittedMaterials:resolved.omitted,referenceMappings:resolved.mappings,rules:ruleSnaps,outline:outline.outline,missing:outline.missing.slice(0,30),stage:'outline',events:[...t.events,{name:'研究策划',agent:'research',state:'complete',time:now(),detail:queries.length+'个检索问题，'+evidence.length+'条证据'}]},'waiting');
  }else if(stage==='write'||stage==='revise'){
  if(stage==='revise'&&t.round>=2)throw Error('已达到两轮修改上限，请人工处理剩余问题');
