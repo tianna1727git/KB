@@ -13,7 +13,7 @@ test('current source-library metadata overrides stale document and chunk categor
  assert.equal(knowledgeLibraryPage(chunks,resolved,{category:'Whitepaper'}).total,0);
  assert.equal(knowledgeLibraryPage(chunks,resolved,{category:'Templates & Tools'}).total,2);
  assert.equal(JSON.stringify({libraries,docs,chunks}),before);
- assert.deepEqual(LIBRARY_CATEGORIES,['About Payoneer','Events','Product Guide','Products & Solutions','Product Brochure','Templates & Tools','Whitepaper']);
+ assert.deepEqual(LIBRARY_CATEGORIES,['About Payoneer','Events','Product Guide','Products & Solutions','Product Brochure','Templates & Tools','Whitepaper','FAQ']);
  const noCategory=withCurrentSourceCategories([{id:'plain',name:'plain'}]);
  assert.equal(knowledgeLibraryItem('plain-chunk',[{id:'plain-chunk',docId:'plain',libraryCategory:'Whitepaper',body:'evidence',risks:[]}],noCategory).libraryCategory,'未分类');
 });

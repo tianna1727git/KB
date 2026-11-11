@@ -23,10 +23,11 @@ try{
  await insert('foreign-source','other',{name:'机密资料',fileKey:'foreign.md',libraryCategory:'Events'});
  await bucket.put('guide.md',markdown);await bucket.put('private-original.pdf','original');await bucket.put('foreign.md','其他账号的机密正文');
  assert.deepEqual((await rpc('server/discover',{},null)).supportedVersions,['2026-07-28']);
- const listed=await rpc('tools/list',{},null);assert.equal(listed.tools.length,11);
+ const listed=await rpc('tools/list',{},null);assert.equal(listed.tools.length,13);
  await tool('payo_identity',{},null,true);await tool('payo_list_sources',{owner:'other'},'owner',true);
  assert.equal((await tool('payo_identity')).policyVersion,'knowledge-organization-v2');
  let list=await tool('payo_list_sources');assert.equal(list.total,1);assert.equal(list.items[0].id,'guide-source');assert.ok(!JSON.stringify(list).includes('private-original.pdf'));
+ const uploaded=await tool('payo_upload_source',{name:'注册FAQ.md',markdown:'# 注册FAQ\n\n注册需要什么？\n提供有效身份证件与完整信息。',libraryCategory:'FAQ'});assert.equal(uploaded.libraryCategory,'FAQ');await tool('payo_upload_source',{name:'bad.md',markdown:'x',libraryCategory:'FAQ'},null,true);const sourceList=await tool('payo_list_sources');const faq=sourceList.items.find(x=>x.id===uploaded.id);assert.equal(faq.categoryRevision,1);await tool('payo_update_source_categories',{libraryCategory:'Product Guide',items:[{id:faq.id,categoryRevision:1}]},'other',true);assert.equal((await tool('payo_read_source',{id:faq.id,kind:'library'})).libraryCategory,'FAQ');
  const first=await tool('payo_read_source',{id:'guide-source',kind:'library',limit:10});assert.equal(first.markdown,markdown.slice(0,10));assert.equal(first.nextOffset,10);
  await tool('payo_read_source',{id:'foreign-source',kind:'library'},'owner',true);
  let job=await tool('payo_start_organization',{id:'guide-source'});assert.equal(job.organizationContext.policyVersion,'knowledge-organization-v2');
