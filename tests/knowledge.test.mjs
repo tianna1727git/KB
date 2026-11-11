@@ -4,7 +4,7 @@ test('Markdown partition preserves every character, headings, tables, conditions
 test('title-only and long chapters require review',()=>{assert.ok(splitMarkdown('# 标题\n')[0].risks.length);assert.ok(splitMarkdown('# 长章节\n'+'字'.repeat(6100))[0].risks.length);});
 test('regional synonyms recall relevant text without returning unrelated knowledge',()=>{const items=[{id:'a',title:'巴西市场',body:'Latin America export guide',keywords:[]},{id:'b',title:'人力管理',body:'员工考核制度',keywords:[]}];assert.equal(rank('拉美',items)[0].id,'a');assert.equal(rank('工业相机',items).length,0);});
 test('only current, enabled, effective source revisions may be used',()=>{const d={id:'d',revision:3,state:'ready',effective:'2020-01-01'},k={state:'approved',docId:'d',docRevision:3};assert.equal(canUse(k,[d]),true);assert.equal(canUse(k,[{...d,disabled:true}]),false);assert.equal(canUse(k,[{...d,expires:'2021-01-01'}]),false);assert.equal(canUse({...k,docRevision:2},[d]),false);});
-test('invented and absent citations are rejected',()=>{assert.deepEqual(citationCheck('正文[S1]',[{ref:'S1'}]),['S1']);assert.throws(()=>citationCheck('正文[S99]',[{ref:'S1'}]));assert.throws(()=>citationCheck('正文',[]));});
+test('invented citations are rejected and public citations are optional',()=>{assert.deepEqual(citationCheck('正文[S1]',[{ref:'S1'}]),['S1']);assert.throws(()=>citationCheck('正文[S99]',[{ref:'S1'}]));assert.deepEqual(citationCheck('正文',[]),[]);});
 
 import {classifyKnowledge,relatedKnowledge,topicQueries} from '../lib/studio/knowledge-model.mjs';
 test('CR-only Markdown retains exact source ranges and separate sections',()=>{const text='# A\rfirst\r## B\rsecond\r';const slices=splitMarkdown(text);assert.equal(slices.length,2);assert.ok(coverage(text,slices));});

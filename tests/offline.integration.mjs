@@ -6,13 +6,14 @@ import assert from 'node:assert/strict';
 mkdirSync('.sites-runtime/tests',{recursive:true});
 await build({entryPoints:['tests/worker.ts'],bundle:true,format:'esm',platform:'browser',target:'es2022',outfile:'.sites-runtime/tests/handoff.mjs'});
 const mock=createFetchMock();mock.disableNetConnect();
+mock.get('https://www.payoneer.com').intercept({path:'/latam',method:'GET'}).reply(200,'<title>公开测试资料</title><p>拉美市场 拉美市场需要区分国家条件。</p>',{headers:{'content-type':'text/html'}}).persist();
 const mf=new Miniflare({modules:true,scriptPath:'.sites-runtime/tests/handoff.mjs',compatibilityDate:'2026-05-15',compatibilityFlags:['nodejs_compat'],d1Databases:['DB'],r2Buckets:['BUCKET'],bindings:{AI_URL:'https://must-not-call.test/chat',AI_MODEL:'configured-but-unused',KNOWLEDGE_AI_URL:'https://must-not-call.test/chat',KNOWLEDGE_AI_MODEL:'configured-but-unused'},fetchMock:mock});
 const identity={'oai-authenticated-user-id':'owner','oai-authenticated-user-email':'owner@example.com'};
 async function req(path,body,uid='owner',extra={}){let payload,headers={...identity,'oai-authenticated-user-id':uid,...extra};if(body instanceof FormData){const r=new Request('https://test',{method:'POST',body});headers['content-type']=r.headers.get('content-type');payload=await r.arrayBuffer();}else if(body){payload=JSON.stringify(body);headers['content-type']='application/json';}const r=await mf.dispatchFetch('https://studio.test/api/studio/'+path,{method:body?'POST':'GET',headers,body:payload});return {status:r.status,j:await r.json()};}
 const payload=p=>({...p.resultTemplate,reviewed:true});
 try{
  const db=await mf.getD1Database('DB');for(const f of readdirSync('drizzle').filter(f=>f.endsWith('.sql')))await db.exec(readFileSync('drizzle/'+f,'utf8').replace(/--> statement-breakpoint/g,'').replace(/\n/g,' '));
- const form=new FormData();form.set('file',new File(['# 拉美市场\n拉美市场需要区分国家条件。'],'拉美.md'));for(const [k,v]of Object.entries({category:'市场研究',purpose:'fact',source:'测试资料',external:'true',effective:'2020-01-01'}))form.set(k,v);
+ const form=new FormData();form.set('file',new File(['# 拉美市场\n拉美市场需要区分国家条件。'],'拉美.md'));for(const [k,v]of Object.entries({category:'市场研究',purpose:'fact',usageScope:'reference',source:'https://www.payoneer.com/latam',external:'true',effective:'2020-01-01'}))form.set(k,v);
  const did=(await req('upload',form)).j.document.id;let d=(await req('document/'+did)).j;await req('confirm',{ids:d.chunks.map(k=>k.id),riskConfirmed:true});d=(await req('document/'+did)).j;
  const brief={keyword:'拉美',platform:'官网',audience:'卖家',description:'入门介绍',writingRules:'不得编造'};
  let t=(await req('createTask',{...brief})).j;
@@ -26,8 +27,8 @@ try{
  assert.equal((await req('handoffExport',{kind:'task',id:t.id,revision:t.revision},'other')).status,404);
  assert.equal((await req('handoffExport',{kind:'task',id:t.id,revision:t.revision},'owner',{origin:'https://evil.test'})).status,403);
  let ex=await req('handoffExport',{kind:'task',id:t.id,revision:t.revision});assert.equal(ex.status,200);t=ex.j.record;let p=ex.j.package;
- assert.ok(p.input.evidence[0].body.includes('区分国家'));assert.equal(p.input.writingRules,brief.writingRules);assert.ok(!JSON.stringify(p).includes('AI_KEY'));assert.equal(p.revision,t.revision);
- let output={title:'拉美入门',intent:'入门',queries:['拉美市场'],outline:'## 准备 [S1]',missing:[]};
+ assert.ok(p.input.materials[0].body.includes('区分国家'));assert.equal(p.input.writingRules,brief.writingRules);assert.ok(!JSON.stringify(p).includes('AI_KEY'));assert.equal(p.revision,t.revision);
+ let output={title:'拉美入门',intent:'入门',queries:['拉美市场'],outline:'## 准备 [S1]',missing:[],publicReferences:[{referenceId:p.input.materials[0].id,url:'https://www.payoneer.com/latam',quote:'拉美市场 拉美市场需要区分国家条件。',materialIds:[p.input.materials[0].id],authorityReason:'官方公开原文'}]};
  assert.equal((await req('handoffImport',{...payload(p),reviewed:false,result:output})).status,409);
  assert.equal((await req('handoffImport',{...payload(p),token:'wrong',result:output})).status,409);
  assert.equal((await req('handoffImport',{...payload(p),stage:'write',result:output})).status,409);

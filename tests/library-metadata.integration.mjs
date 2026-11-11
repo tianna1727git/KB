@@ -17,9 +17,16 @@ try{
  const before=await request('library');assert.equal(before.data.files.length,1);assert.equal(before.data.files[0].knowledgeState,'done');assert.equal(before.data.files[0].knowledgeDocumentId,'document-source');assert.equal(before.data.files[0].categoryRevision,0);
  const edit={id:'library-source',libraryCategory:'Events',categoryRevision:0};assert.equal((await request('libraryCategoryUpdate',edit,'other')).status,404);assert.equal((await request('libraryCategoryUpdate',edit,'owner',{origin:'https://evil.test'})).status,403);assert.equal((await request('libraryCategoryUpdate',{...edit,libraryCategory:'Invalid'})).status,400);
  const saved=await request('libraryCategoryUpdate',edit);assert.equal(saved.status,200);assert.equal(saved.data.categoryRevision,1);assert.equal((await request('libraryCategoryUpdate',edit)).status,409);
+ const chunk={docId:'document-source',libraryCategory:'Product Guide',title:'分类同步检索专用',body:'来源原文证据保持不变',type:'操作流程',risks:[],docRevision:5};
+ await insert('category-chunk','chunk',chunk);
+ await db.prepare('INSERT INTO studio_records(id,kind,owner,state,revision,payload,created,updated) VALUES(?,?,?,?,?,?,?,?)').bind('foreign-category','libraryMetadata','other','saved',1,JSON.stringify({sourceId:'library-source',libraryCategory:'About Payoneer'}),time,time).run();
+ let knowledge=await request('knowledge?page=1&q='+encodeURIComponent(chunk.title));
+ assert.equal(knowledge.status,200);assert.equal(knowledge.data.items[0].libraryCategory,'Events');assert.equal(knowledge.data.categories[0].name,'Events');assert.equal((await request('knowledgeItem/category-chunk')).data.libraryCategory,'Events');
  let rows=(await request('library')).data.files;assert.equal(rows[0].libraryCategory,'Events');assert.equal(rows[0].contentUpdatedAt,time);assert.equal(rows[0].knowledgeState,'done');assert.equal(rows[0].categoryRevision,1);
  assert.equal((await request('library/library-source')).data.libraryCategory,'Events');assert.equal((await request('document/document-source')).data.libraryCategory,'Events');
  const changed=await request('libraryCategoryUpdate',{id:'document-source',libraryCategory:'Whitepaper',categoryRevision:1});assert.equal(changed.status,200);assert.equal(changed.data.categoryRevision,2);assert.equal((await request('library')).data.files[0].libraryCategory,'Whitepaper');
+ knowledge=await request('knowledge?page=1&q='+encodeURIComponent(chunk.title)+'&category=Whitepaper');assert.equal(knowledge.data.total,1);assert.equal(knowledge.data.items[0].libraryCategory,'Whitepaper');assert.equal((await request('knowledgeItem/category-chunk')).data.libraryCategory,'Whitepaper');
+ assert.equal((await db.prepare('SELECT payload FROM studio_records WHERE id=?').bind('category-chunk').first()).payload,JSON.stringify(chunk));
  assert.equal((await db.prepare('SELECT revision FROM studio_records WHERE id=?').bind('library-source').first()).revision,7);assert.equal((await db.prepare('SELECT revision FROM studio_records WHERE id=?').bind('document-source').first()).revision,5);
  assert.equal((await db.prepare('SELECT payload FROM studio_records WHERE id=?').bind('library-source').first()).payload,JSON.stringify(library));
  // A document-only projection uses its own metadata without requiring an imported library row.

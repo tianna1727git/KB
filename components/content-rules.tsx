@@ -1,0 +1,3 @@
+'use client';
+import {SEO_RULES} from '../lib/studio/content-rules.mjs';
+export function ContentRules(){return <section className="panel settings-panel content-rules"><h2>官网写作规则与输出模板</h2><p>当前支持平台：官网 · 规则版本 {SEO_RULES.version} · 已于 {SEO_RULES.reviewedAt} 阅读并整理 Semrush 原文</p><details><summary>SEO内容结构与检查规则</summary><ol>{SEO_RULES.rules.map(rule=><li key={rule}>{rule}</li>)}</ol></details><details><summary>官网文章框架</summary><pre>{SEO_RULES.template}</pre></details><details><summary>规范来源（开发时已阅读）</summary>{SEO_RULES.sources.map(source=><p key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer">Semrush · {source.title}</a> · {source.verification==='reviewed'?'已阅读':'待核对'}</p>)}</details></section>;}

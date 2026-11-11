@@ -1,0 +1,8 @@
+'use client';
+import {useEffect,useState} from 'react';
+export function ReferenceSettings(){const [config,setConfig]=useState<any>(null),[allow,setAllow]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
+ async function load(){try{const r=await fetch('/api/studio/referenceSettings'),c:any=await r.json();if(!r.ok)throw Error(c.error);setConfig(c);setAllow(c.allowAlternativePublicSources);}catch(e:any){setError(e.message);}}
+ useEffect(()=>{load();},[]);
+ async function save(){setBusy(true);setError('');setNotice('');try{const r=await fetch('/api/studio/referenceSettings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({revision:config.revision,allowAlternativePublicSources:allow})}),c:any=await r.json();if(!r.ok)throw Error(c.error);setConfig(c);setNotice('引用规则已保存，下次研究策划时生效。');}catch(e:any){setError(e.message);}finally{setBusy(false);}}
+ return <section className="panel settings-panel reference-settings" id="reference-settings"><h2>写作与引用规则</h2><p>写作素材可用于内容生产，但不能作为公开参考引用。</p><label className="check-label"><input aria-label="允许其他权威公开来源" type="checkbox" checked={allow} disabled={!config||busy} onChange={e=>setAllow(e.target.checked)}/>允许其他权威公开来源替代原始出处</label><p className="subtle">开启后，可使用能支撑同一事实、条件和时期的其他权威公开来源；关闭后，仅采用素材注明的原始公开出处。引用保存网址和逐字原文，研究时核实网页。API 模式从资料库公开来源中匹配；Codex 交接可进一步检索公开网页。</p><p>没有公开引用仍可写作；内部素材不进入文章参考资料。</p>{error&&<p role="alert" className="risk-note">{error}<button className="text-btn" onClick={load}>重新读取</button></p>}{notice&&<p role="status">{notice}</p>}<button className="primary" disabled={!config||busy||allow===config.allowAlternativePublicSources} onClick={save}>保存引用规则</button></section>;
+}

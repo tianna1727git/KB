@@ -145,9 +145,10 @@ Site 到 MinerU 存储的文件上传改为带已知 Content-Length 的 R2 流�
 
 用户进一步明确授权本批3676条允许对外引用。v3一次性任务沿用原截点，同时处理待确认与已确认但内部使用的条目，记录授权人及时间，设定知识与来源 external=true，并同步来源版本。原风险、正文、日期、用途不变，Demo与后续新增资料不参与；实际进度仍由登录知识库页面执行。
 
+## MCP 知识整理连接
 
-## GitHub source synchronization — Sites version 46
+发布声明 `capabilities: ["mcp"]`，`POST /mcp` 实现 MCP 2026-07-28 的发现、工具列表和调用。Sites 平台校验访问者，并提供与网页相同的账号身份；服务访问 token 不等同于用户身份。工具拒绝身份参数，所有资料读写复用原有 owner 查询和来源版本/逐字证据校验。不修改网站 audience、原件、历史记录或引用授权。
 
-This snapshot matches deployed source commit `4e271e916822429e2a950a203c95bc5857b49031`, with the bundled business-document catalog removed from this public copy (`lib/studio/library-data.json` is empty). Existing production D1/R2 data is not included or modified. Upload documents through the authenticated application.
+连接后先调用 `payo_identity`，再 `payo_list_sources`、`payo_read_source`。单份验证顺序为 `payo_start_organization` → `payo_export_packet` → 按任务包执行提取/关联/复核 → `payo_import_packet` → `payo_commit_organization` → `payo_search_knowledge` / `payo_read_knowledge`。导入及保存需要 reviewed=true 和当前任务 revision；不能直接写数据库、确认全部风险或授予对外引用。入库结果保持待确认、内部使用，并可在知识库“全部/待确认”检索。
 
-The category-aware knowledge organization rules are in `public/knowledge-organization-agent.md`; regenerate them with `node scripts/export-knowledge-agent.mjs`. The source includes global keyword/entity recall, flow/version context, temporal metadata, library layout improvements and bulk category editing. Historical documents have not been automatically reprocessed.
+`node tests/mcp.integration.mjs` 使用隔离 D1/R2 验证完整单份流程、匿名拒绝、跨账号隔离、旧版本/伪造引文拒绝、原资料保留；不调用模型。上线后的真实资料验证需要连接网站自动创建的插件，不能用模拟身份冒充线上验证。

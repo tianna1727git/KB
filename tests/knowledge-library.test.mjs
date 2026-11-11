@@ -1,5 +1,43 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
-import {knowledgeLibraryPage,knowledgeLibraryItem} from '../lib/studio/knowledge-library.mjs';
+import {knowledgeLibraryPage,knowledgeLibraryItem,withCurrentSourceCategories} from '../lib/studio/knowledge-library.mjs';
+import {LIBRARY_CATEGORIES} from '../lib/studio/library-categories.mjs';
+test('current source-library metadata overrides stale document and chunk categories without rewriting evidence',()=>{
+ const libraries=[{id:'library',sha256:'hash',libraryCategory:'Product Guide'}];
+ const docs=[{id:'version',libraryId:'library',hash:'hash',libraryCategory:'Events',name:'source.pdf',state:'ready'},{id:'hash-alias',hash:'hash',libraryCategory:'Events',name:'old.pdf',state:'ready'},{id:'standalone',libraryCategory:'Product Brochure',name:'standalone.md',state:'ready'}];
+ const chunks=docs.map((doc,i)=>({id:'chunk-'+i,docId:doc.id,libraryCategory:'Whitepaper',title:'收款条件',body:'原文证据',state:'pending',risks:[]}));
+ const before=JSON.stringify({libraries,docs,chunks});
+ const resolved=withCurrentSourceCategories(docs,libraries,[{sourceId:'library',libraryCategory:'Templates & Tools',revision:2},{sourceId:'standalone',libraryCategory:'About Payoneer',revision:1}]);
+ const page=knowledgeLibraryPage(chunks,resolved,{q:'收款'});
+ assert.deepEqual(page.items.map(item=>item.libraryCategory),['Templates & Tools','Templates & Tools','About Payoneer']);
+ assert.equal(page.sourceCount,2);assert.equal(knowledgeLibraryItem('chunk-0',chunks,resolved).libraryCategory,'Templates & Tools');
+ assert.equal(knowledgeLibraryPage(chunks,resolved,{category:'Whitepaper'}).total,0);
+ assert.equal(knowledgeLibraryPage(chunks,resolved,{category:'Templates & Tools'}).total,2);
+ assert.equal(JSON.stringify({libraries,docs,chunks}),before);
+ assert.deepEqual(LIBRARY_CATEGORIES,['About Payoneer','Events','Product Guide','Products & Solutions','Product Brochure','Templates & Tools','Whitepaper']);
+ const noCategory=withCurrentSourceCategories([{id:'plain',name:'plain'}]);
+ assert.equal(knowledgeLibraryItem('plain-chunk',[{id:'plain-chunk',docId:'plain',libraryCategory:'Whitepaper',body:'evidence',risks:[]}],noCategory).libraryCategory,'未分类');
+});
+test('category facets count all matched pages and filtering uses source categories rather than knowledge types',()=>{
+ const docs=[{id:'guide',name:'操作指南',state:'ready',libraryCategory:'Product Guide'},{id:'research',name:'市场研究',state:'ready',libraryCategory:'Whitepaper'}];
+ const chunks=Array.from({length:27},(_,i)=>({id:'match-'+i,docId:i<22?'guide':'research',state:'pending',title:'预约汇率 '+i,body:'设置目标汇率',type:'操作流程',risks:[]}));
+ const first=knowledgeLibraryPage(chunks,docs,{q:'预约汇率',pageSize:12,directOnly:true});
+ assert.equal(first.items.length,12);assert.equal(first.total,27);
+ assert.deepEqual(Object.fromEntries(first.categories.map(c=>[c.name,c.count])),{'Product Guide':22,Whitepaper:5});
+ const selected=knowledgeLibraryPage(chunks,docs,{q:'预约汇率',category:'Whitepaper',pageSize:12,directOnly:true});
+ assert.equal(selected.total,5);assert.ok(selected.items.every(item=>item.docId==='research'));assert.equal(selected.categories.find(c=>c.name==='Product Guide').count,22);
+ assert.equal(knowledgeLibraryPage(chunks,docs,{pageSize:12}).total,27);
+ assert.equal(knowledgeLibraryPage(chunks,docs,{q:'无匹配查询',directOnly:true}).categories.length,0);
+});
+test('search can exclude context without dropping direct results or changing default management pagination',()=>{
+ const docs=[{id:'shared',name:'含有预约汇率的资料',markdown:'预约汇率说明',state:'ready',libraryCategory:'Product Guide'}];
+ const chunks=[{id:'hit',docId:'shared',state:'pending',title:'预约汇率入口',body:'设置汇率',risks:[]},{id:'context',docId:'shared',state:'pending',title:'注意事项',body:'核对余额',risks:[]}];
+ const full=knowledgeLibraryPage(chunks,docs,{q:'预约汇率'});
+ assert.equal(full.total,2);assert.equal(full.retrieval.contextCount,1);
+ const direct=knowledgeLibraryPage(chunks,docs,{q:'预约汇率',directOnly:'true'});
+ assert.deepEqual(direct.items.map(item=>item.id),['hit']);assert.equal(direct.categories[0].count,1);
+ assert.equal(knowledgeLibraryPage(chunks,docs,{directOnly:true}).total,2);
+ assert.equal(knowledgeLibraryPage(chunks,docs,{source:'shared',status:'pending'}).total,2);
+});
 const documents=[{id:'source-new',name:'如何使用派安盈收款请求.pdf',source:'上传 PDF',state:'review',revision:1},{id:'source-ready',name:'旧资料.md',source:'公开资料',state:'ready',revision:1}];
 const items=[{id:'new-approved',docId:'source-new',docRevision:1,state:'approved',title:'创建请求',body:'填写付款信息。',type:'操作流程',risks:[],products:['收款账户']},{id:'new-pending',docId:'source-new',docRevision:1,state:'pending',title:'检查条件',body:'核对交易资格。',type:'规则与条件',risks:['资格'],products:['收款账户']},{id:'ready',docId:'source-ready',docRevision:1,state:'approved',title:'其他知识',body:'已经核对。',type:'产品说明',risks:[],products:['收款账户']}];
 test('newly saved knowledge is visible by source filename and explicit source filter',()=>{const before=JSON.stringify(items);const r=knowledgeLibraryPage(items,documents,{q:'如何使用派安盈收款请求.pdf',page:1});assert.equal(r.total,2);assert.ok(r.items.every(k=>k.sourceName===documents[0].name));assert.equal(r.summary.total,3);assert.equal(knowledgeLibraryPage(items,documents,{source:'source-new',page:1}).total,2);assert.equal(JSON.stringify(items),before);});
