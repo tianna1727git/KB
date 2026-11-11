@@ -13,15 +13,15 @@ export function TitleSelection({task,onUpdate}:{task:R;onUpdate:(t:R)=>void}){
  <footer><span>{ids.length?'已选 '+ids.length+' 个标题':'请选择标题'}</span><button className="primary" disabled={busy||task.state==='running'||!ids.length||!!task.stale?.length} onClick={()=>submit()}><Sparkles size={16}/>{busy?'处理中…':'开始生成'+(ids.length?' '+ids.length+' 篇':'')}</button></footer></section>;
 }
 export function ArticleBatch({task,modelReady,onOpen,background=false,autoRun=true,skipTaskId=''}:{task:R;modelReady:boolean;onOpen:(id:string)=>void;background?:boolean;autoRun?:boolean;skipTaskId?:string}){
- const [items,setItems]=useState<R[]>([]),[error,setError]=useState('');const active=useRef(false);
- useEffect(()=>{let stopped=false;let timer:ReturnType<typeof setTimeout>;
- async function tick(){if(stopped)return;if(active.current){timer=setTimeout(tick,1000);return;}active.current=true;
- try{const rows=await Promise.all((task.childTaskIds||[]).map((id:string)=>request('task/'+id)));if(stopped)return;setItems(rows);
+ const [items,setItems]=useState<R[]>([]),[error,setError]=useState('');const active=useRef(false);const [retryEpoch,setRetryEpoch]=useState(0);
+ useEffect(()=>{let stopped=false,finished=false,delay=6000;let timer:ReturnType<typeof setTimeout>;
+ async function tick(){if(stopped||finished)return;if(document.hidden){timer=setTimeout(tick,10000);return;}if(active.current){timer=setTimeout(tick,1000);return;}active.current=true;
+ try{const rows=(await request('batchStatus/'+task.id)).items;if(stopped)return;setItems(rows);setError('');delay=6000;finished=rows.length>0&&rows.every((t:R)=>['review','done'].includes(t.stage)||t.state==='failed');
  const next=rows.find(t=>t.id!==skipTaskId&&t.state==='waiting'&&['write','check'].includes(t.stage));
  if(next&&modelReady&&autoRun){const result=await request('run',{id:next.id,revision:next.revision});if(!stopped)setItems(rows.map(t=>t.id===result.id?result:t));}
- }catch(e:any){if(!stopped)setError(e.message);}finally{active.current=false;if(!stopped)timer=setTimeout(tick,1500);}}
- tick();return()=>{stopped=true;clearTimeout(timer);};},[task.id,modelReady,autoRun,skipTaskId]);
- async function retry(t:R){if(active.current)return;active.current=true;setError('');try{const updated=await request('run',{id:t.id,revision:t.revision});setItems(rows=>rows.map(x=>x.id===t.id?updated:x));}catch(e:any){setError(e.message);}finally{active.current=false;}}
+ }catch(e:any){delay=Math.min(delay*2,30000);if(!stopped)setError(/overloaded/i.test(e.message)?'服务繁忙，稍后自动更新':e.message);}finally{active.current=false;if(!stopped&&!finished)timer=setTimeout(tick,delay);}}
+ tick();return()=>{stopped=true;clearTimeout(timer);};},[task.id,modelReady,autoRun,skipTaskId,retryEpoch]);
+ async function retry(t:R){if(active.current)return;active.current=true;setError('');try{const current=await request('task/'+t.id);const updated=await request('run',{id:current.id,revision:current.revision});setItems(rows=>rows.map(x=>x.id===t.id?updated:x));}catch(e:any){setError(e.message);}finally{active.current=false;setRetryEpoch(n=>n+1);}}
  if(background)return null;
  return <section className="panel title-selection" aria-label="本次生成文稿"><header><div><h2>本次文稿</h2><p>{items.filter(t=>['review','done'].includes(t.stage)).length} / {task.childTaskIds?.length||0} 篇已生成</p></div></header>{error&&<p className="banner error">{error}</p>}{!modelReady&&<p className="banner">请先配置文稿生成服务。</p>}<div className="article-batch-list">{items.map(t=><article key={t.id}><div><h3>{t.title}</h3><p>{t.error||({write:'正在起草',check:'正在检查',review:'待人工审核',done:'审核完成'} as R)[t.stage]||'等待生成'}</p></div><div className="actions">{t.state==='failed'&&<button disabled={!modelReady} onClick={()=>retry(t)}>重试</button>}<button onClick={()=>onOpen(t.id)}>{['review','done'].includes(t.stage)?'查看文稿':'查看进度'}<ArrowRight size={15}/></button></div></article>)}</div></section>;
 }
