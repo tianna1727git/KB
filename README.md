@@ -156,3 +156,7 @@ Site 到 MinerU 存储的文件上传改为带已知 Content-Length 的 R2 流�
 ## 统一用户名密码入口（可选独立部署）
 
 KB 作为统一登录入口，按服务端账号配置进入 KB 或 pmi-kb；两个部署独立存储。默认保留原有 ChatGPT 登录，切换与部署步骤见 [统一登录配置](docs/password-login.md)。账号密码和交接密钥只在部署 secrets 配置，不进入 GitHub。
+
+## 腾讯云 Ubuntu：同一主域名按账号分流
+
+统一使用 `https://tianna.net.cn`：Payo KB 账号进入 KB，PMI KB 账号进入 PMI，地址栏不跳转子域名。采用本机统一登录服务和两个独立后端，保留已有账号、模型加密密钥及各自数据目录。更新、验收、Nginx 切换与回退说明见 [单域名服务器部署](docs/single-origin-ubuntu.md)。

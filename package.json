@@ -13,7 +13,8 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
     "test": "npm run test:auth && node --test tests/article-faq.test.mjs tests/insights-policy.test.mjs tests/publishing.test.mjs tests/outline.test.mjs tests/content-workbench.test.mjs tests/usage-scope.test.mjs tests/organization-v2.test.mjs tests/knowledge.test.mjs tests/knowledge-library.test.mjs tests/ingestion.test.mjs tests/api-ingestion-evidence.test.mjs tests/source-diagnostics.test.mjs && node tests/integration.mjs && node tests/ingestion.integration.mjs && node tests/model-settings.integration.mjs && node tests/offline.integration.mjs && node tests/knowledge-packet.integration.mjs && node tests/api-integration.mjs && node tests/api-ingestion.integration.mjs && node tests/mineru.integration.mjs && node tests/knowledge-batch.integration.mjs && node tests/library-metadata.integration.mjs && node tests/organization-v2.integration.mjs && node tests/mcp.integration.mjs && node tests/usage.integration.mjs && node tests/insights.integration.mjs && node tests/text-revision.integration.mjs && node tests/writing-materials.integration.mjs && node tests/title-flow.integration.mjs && node tests/publishing.integration.mjs",
-    "test:auth": "node --test tests/password-auth.test.mjs && node tests/password-auth.integration.mjs"
+    "test:auth": "node --test tests/password-auth.test.mjs && node tests/password-auth.integration.mjs && npm run test:gateway",
+    "test:gateway": "node --test tests/single-origin.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

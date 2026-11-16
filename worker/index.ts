@@ -3,18 +3,19 @@ import {api} from '../lib/studio/api';
 import handler from "vinext/server/fetch-handler";
 import { runWithConnectorBinding } from "../lib/connector-context";
 import type { ConnectorBinding } from "../lib/connector-contract.mjs";
+import { gatewayIdentity } from '../lib/studio/gateway-identity.mjs';
 import { passwordAuth } from '../lib/studio/password-auth.mjs';
 
 const worker = {
   async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
-    const auth = await passwordAuth(request, env);
+    const auth = env.STUDIO_AUTH_MODE === 'gateway' ? await gatewayIdentity(request, env) : await passwordAuth(request, env);
     if (auth.response) return auth.response;
     request = auth.request!;
     const dispatch = async () => {
       if(new URL(request.url).pathname==='/mcp')return mcp(request,env,api);
       if(new URL(request.url).pathname.startsWith('/api/studio/')){
         // Synthetic identity for the isolated local preview only. Vite removes this branch from production.
-        if(import.meta.env.DEV && env.STUDIO_AUTH_MODE !== 'password'){const headers=new Headers(request.headers);headers.set('oai-authenticated-user-id','studio-local-preview');headers.set('oai-authenticated-user-email','tianna1727@gmail.com');request=new Request(request,{headers});}
+        if(import.meta.env.DEV && !['password','gateway'].includes(env.STUDIO_AUTH_MODE || '')){const headers=new Headers(request.headers);headers.set('oai-authenticated-user-id','studio-local-preview');headers.set('oai-authenticated-user-email','tianna1727@gmail.com');request=new Request(request,{headers});}
         return api(request,env);
       }
       let binding = ctx.props?.CONNECTORS;
@@ -37,14 +38,14 @@ const worker = {
         };
       }
       // Standalone password deployments run the Worker before static assets too.
-      if (env.STUDIO_AUTH_MODE === 'password' && env.ASSETS && ['GET', 'HEAD'].includes(request.method)) {
+      if (['password','gateway'].includes(env.STUDIO_AUTH_MODE || '') && env.ASSETS && ['GET', 'HEAD'].includes(request.method)) {
         const asset = await env.ASSETS.fetch(request);
         if (asset.status !== 404) return asset;
       }
       return runWithConnectorBinding(binding, () => handler.fetch(request, env, ctx));
     };
     const result = await dispatch();
-    if (env.STUDIO_AUTH_MODE !== 'password') return result;
+    if (!['password','gateway'].includes(env.STUDIO_AUTH_MODE || '')) return result;
     const headers = new Headers(result.headers);
     headers.set('Cache-Control', 'private, no-store');
     headers.set('Vary', headers.get('Vary') ? headers.get('Vary') + ', Cookie' : 'Cookie');

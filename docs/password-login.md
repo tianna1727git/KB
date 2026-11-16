@@ -1,5 +1,7 @@
 # KB 统一用户名密码登录
 
+当前腾讯云服务器采用[同一主域名按账号分流](single-origin-ubuntu.md)。本文保留原双域名部署方式供参考；不要把两种方式的配置混用。
+
 入口属于 KB 仓库。两个仓库分别构建、分别部署：KB 账号进入 KB；PMI 账号从 KB 登录，经一次性签名凭证进入 pmi-kb。工作台不能由浏览器选择或用 URL 参数切换。
 
 这是可选的独立 Cloudflare Workers 部署模式。默认仍是 ChatGPT/Sites 登录；不更改既有 Site 的身份、访问策略或 `.openai/hosting.json`。在 Sites 发布时继续使用平台登录，用户名密码模式应部署到自己管理的 Cloudflare Workers。此次 GitHub 提交不部署任何站点。
