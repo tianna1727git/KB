@@ -152,3 +152,7 @@ Site 到 MinerU 存储的文件上传改为带已知 Content-Length 的 R2 流�
 连接后先调用 `payo_identity`，再 `payo_list_sources`、`payo_read_source`。单份验证顺序为 `payo_start_organization` → `payo_export_packet` → 按任务包执行提取/关联/复核 → `payo_import_packet` → `payo_commit_organization` → `payo_search_knowledge` / `payo_read_knowledge`。导入及保存需要 reviewed=true 和当前任务 revision；不能直接写数据库、确认全部风险或授予对外引用。入库结果保持待确认、内部使用，并可在知识库“全部/待确认”检索。
 
 `node tests/mcp.integration.mjs` 使用隔离 D1/R2 验证完整单份流程、匿名拒绝、跨账号隔离、旧版本/伪造引文拒绝、原资料保留；不调用模型。上线后的真实资料验证需要连接网站自动创建的插件，不能用模拟身份冒充线上验证。
+
+## 统一用户名密码入口（可选独立部署）
+
+KB 作为统一登录入口，按服务端账号配置进入 KB 或 pmi-kb；两个部署独立存储。默认保留原有 ChatGPT 登录，切换与部署步骤见 [统一登录配置](docs/password-login.md)。账号密码和交接密钥只在部署 secrets 配置，不进入 GitHub。
