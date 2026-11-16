@@ -107,6 +107,7 @@ test('signed tickets reject tampering, expiry, wrong destination and secret', as
 test('cross-origin login, callback and authenticated writes are blocked', async () => {
   const {kb, pmi} = environments();
   const req = request(kbOrigin, '/auth/login', {method: 'POST', body: {username: 'kb-admin', password}, headers: {origin: 'https://evil.example'}});
+  assert.equal((await passwordAuth(request(kbOrigin, '/auth/login', {method: 'POST', body: {username: 'kb-admin', password}, headers: {origin: 'null'}}), kb)).response.status, 403);
   assert.equal((await passwordAuth(req, kb)).response.status, 403);
   assert.equal((await passwordAuth(request(pmiOrigin, '/auth/callback', {method: 'POST', body: {ticket: 'anything'}, headers: {origin: pmiOrigin}}), pmi)).response.status, 403);
   const sessionCookie = cookie((await login(kb)).response);
@@ -144,6 +145,9 @@ test('login HTML has accessible form fields, escaping and no-store policy; MCP s
   const html = await response.text();
   assert.match(html, /autocomplete="current-password"/);
   assert.match(html, /label for="username"/);
+  // no-referrer makes browser navigation POSTs send Origin: null.
+  assert.match(html, /name="referrer" content="strict-origin-when-cross-origin"/);
+  assert.equal(response.headers.get('referrer-policy'), 'strict-origin-when-cross-origin');
   assert.equal(response.headers.get('cache-control'), 'no-store');
   assert.match(response.headers.get('content-security-policy'), /frame-ancestors 'none'/);
   assert.equal((await passwordAuth(request(kbOrigin, '/mcp'), kb)).response.status, 403);
