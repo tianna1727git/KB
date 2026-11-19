@@ -1,4 +1,5 @@
 import {validUsageScope,publicReferenceURL} from './usage-scope.mjs';
+import {uploadFileError,localTextUpload,TEXT_MAX_BYTES} from './upload-policy.mjs';
 import {validMaterialCategory} from './material-categories.mjs';
 import {convert as htmlToText} from 'html-to-text';
 import {unzipSync,strFromU8} from 'fflate';
@@ -13,10 +14,28 @@ async function token(env:R,uid:string,get:Function){let c;try{c=await get('miner
 async function call(key:string,path:string,body?:R){let r:Response;try{r=await fetch('https://mineru.net/api/v4/'+path,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined,redirect:'manual',signal:AbortSignal.timeout(35000)});}catch{throw Error('MinerU 连接超时或不可用，请稍后刷新进度');}const bytes=await bounded(r,1024*1024);let j;try{j=JSON.parse(new TextDecoder().decode(bytes));}catch{throw Error('MinerU 响应格式无效');}if(j.code!==0)throw Error('MinerU 请求失败（'+String(j.code).replace(/[^\w-]/g,'').slice(0,24)+'），请检查 Token、额度及文件格式');return j.data;}
 export async function mineruAPI(req:Request,env:R,ctx:R):Promise<Response>{const {get,list,create,save,uid,fail,json}=ctx;const url=new URL(req.url),[action,rid,part]=url.pathname.replace('/api/studio/','').split('/');
  const meta=async()=>{let c;try{c=await get('mineru-settings:'+uid,'mineruSettings');}catch(e:any){if(e.code!==404)throw e;}return {configured:!!c?.enabled||!!env.MINERU_TOKEN,hasSavedToken:!!c?.ciphertext,revision:c?.revision||0,storageReady:/^[a-f0-9]{64}$/.test(env.MODEL_SETTINGS_ENCRYPTION_KEY||''),deploymentConfigured:!!env.MINERU_TOKEN};};
+ if(action==='librarySubmitStream'){
+  if(req.method!=='POST')fail('请求方法无效',405);
+  const read=(name:string)=>{try{return decodeURIComponent(req.headers.get(name)||'');}catch{fail('上传参数编码无效');return '';}};
+  const name=read('x-material-name'),size=Number(read('x-material-size')),libraryCategory=read('x-material-category'),usageScope=read('x-material-usage'),referenceURL=usageScope==='reference'?publicReferenceURL(read('x-material-reference')):'';
+  const error=uploadFileError({name,size});if(error)fail(name+'：'+error,413);if(localTextUpload({name,size}))fail('文本文件请使用本地导入入口');
+  if(!await validMaterialCategory(env,libraryCategory,uid))fail('请选择有效的资料分类');if(!validUsageScope(usageScope))fail('请选择使用范围');if(read('x-material-consent')!=='true')fail('请确认提交后由 MinerU 自动解析');await token(env,uid,get);
+  if(!req.body)fail('文件内容为空');const length=req.headers.get('content-length');if(length!==null&&Number(length)!==size)fail('声明的文件大小与实际请求大小不一致');
+  const originalKey='library/'+uid+'/'+crypto.randomUUID()+'.original',digest=new (crypto as Crypto&{DigestStream:new(algorithm:string)=>WritableStream<Uint8Array>&{digest:Promise<ArrayBuffer>}}).DigestStream('SHA-256'),hashWriter=digest.getWriter();
+  const hashed=digest.digest.then(result=>Array.from(new Uint8Array(result),b=>b.toString(16).padStart(2,'0')).join(''));hashed.catch(()=>{});
+  // FixedLengthStream lets R2 consume the request directly without buffering a 200 MB file.
+  const fixed=new FixedLengthStream(size);let received=0;
+  const writing=req.body!.pipeThrough(new TransformStream<Uint8Array,Uint8Array>({async transform(chunk,controller){received+=chunk.byteLength;if(received>size)throw Error('文件内容超过声明大小');await hashWriter.write(chunk);controller.enqueue(chunk);},async flush(){await hashWriter.close();}})).pipeTo(fixed.writable);
+  const storing=env.BUCKET.put(originalKey,fixed.readable);try{await Promise.all([writing,storing]);}catch{await hashWriter.abort().catch(()=>{});await env.BUCKET.delete(originalKey).catch(()=>{});fail('文件传输未完成，请重新提交',400);}
+  const originalHash=await hashed,duplicate=(await list('library')).find((f:R)=>f.originalHash===originalHash||f.sha256===originalHash);
+  let file:R;if(duplicate){await env.BUCKET.delete(originalKey);file=duplicate;}else{try{file=await create('library',{name,title:name,path:name,sourceFormat:name.split('.').pop()?.toLowerCase(),libraryCategory,usageScope,referenceURL,size,originalHash,originalKey,originalName:name,format:name.split('.').pop()?.toLowerCase(),source:name,collection:'用户上传',conversionState:'pending',conversionVersion:0,warnings:[]},'stored');}catch(e){await env.BUCKET.delete(originalKey).catch(()=>{});throw e;}}
+  if(file.fileKey||file.conversionState==='running')return json({file,duplicate:!!duplicate,submitted:true});
+  const converted=await mineruAPI(new Request(new URL('/api/studio/libraryConvert',req.url),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:file.id,revision:file.revision,consent:true})}),env,ctx);if(!converted.ok)return converted;return json({file:await converted.json(),duplicate:!!duplicate,submitted:true});
+ }
  if(action==='librarySubmit'){
   if(req.method!=='POST')fail('请求方法无效',405);
   const formRequest=(req.headers.get('content-type')||'').includes('multipart/form-data');let local=false,consent=false,libraryCategory:unknown,usageScope:unknown,referenceURL:unknown;
-  if(formRequest){const form=await req.clone().formData(),file=form.get('file');if(!(file instanceof File))fail('请选择文件');local=/\.(md|markdown|txt|html|htm)$/i.test((file as File).name);consent=form.get('consent')==='true';libraryCategory=form.get('libraryCategory');usageScope=form.get('usageScope');referenceURL=form.get('referenceURL');}
+  if(formRequest){const form=await req.clone().formData(),file=form.get('file');if(!(file instanceof File))fail('请选择文件');local=localTextUpload(file as File);consent=form.get('consent')==='true';libraryCategory=form.get('libraryCategory');usageScope=form.get('usageScope');referenceURL=form.get('referenceURL');}
   else{const b:any=await req.clone().json();consent=b.consent===true;libraryCategory=b.libraryCategory;usageScope=b.usageScope;referenceURL=b.url||b.referenceURL;}
   if(!await validMaterialCategory(env,libraryCategory,uid))fail('请选择有效的资料分类');if(!validUsageScope(usageScope))fail('请选择使用范围');if(usageScope==='reference')publicReferenceURL(referenceURL);
   if(!local){if(!consent)fail('请确认提交后由 MinerU 自动解析');await token(env,uid,get);}
@@ -38,7 +57,7 @@ export async function mineruAPI(req:Request,env:R,ctx:R):Promise<Response>{const
  }
  if(req.method!=='POST')fail('请求方法无效',405);
  if(action==='libraryRawUpload'){
-  const form=await req.formData(),file:any=form.get('file'),libraryCategory=form.get('libraryCategory')||undefined,usageScope=String(form.get('usageScope')||'writing'),referenceURL=usageScope==='reference'?publicReferenceURL(form.get('referenceURL')):'';if(!validUsageScope(usageScope))fail('使用范围无效');if(libraryCategory!==undefined&&!await validMaterialCategory(env,libraryCategory,uid))fail('资料分类无效');if(!(file instanceof File)||!file.size||file.size>MAX)fail('请选择不超过20 MB的文件');if(!/\.(pdf|doc|docx|ppt|pptx|xls|xlsx|txt|html|htm|md|markdown|png|jpg|jpeg|webp|bmp|gif|jp2)$/i.test(file.name))fail('文件格式不受支持');const bytes=new Uint8Array(await file.arrayBuffer()),originalHash=await hash(bytes),duplicate=(await list('library')).find((f:R)=>f.originalHash===originalHash||f.sha256===originalHash);if(duplicate)return json({file:libraryCategory&&!duplicate.libraryCategory?await save(duplicate,{libraryCategory}):duplicate,duplicate:true});const key='library/'+uid+'/'+crypto.randomUUID()+'.original';await env.BUCKET.put(key,bytes);return json({file:await create('library',{name:file.name,title:file.name,path:file.name,sourceFormat:file.name.split('.').pop()?.toLowerCase(),libraryCategory,usageScope,referenceURL,size:file.size,originalHash,originalKey:key,originalName:file.name,format:file.name.split('.').pop()?.toLowerCase(),source:file.name,collection:'用户上传',conversionState:'pending',conversionVersion:0,warnings:[]},'stored')});
+  const form=await req.formData(),file:any=form.get('file'),libraryCategory=form.get('libraryCategory')||undefined,usageScope=String(form.get('usageScope')||'writing'),referenceURL=usageScope==='reference'?publicReferenceURL(form.get('referenceURL')):'';if(!validUsageScope(usageScope))fail('使用范围无效');if(libraryCategory!==undefined&&!await validMaterialCategory(env,libraryCategory,uid))fail('资料分类无效');if(!(file instanceof File))fail('请选择文件');const error=uploadFileError(file);if(error)fail(file.name+'：'+error,413);if(file.size>TEXT_MAX_BYTES)fail('大文件请使用流式上传入口',413);const bytes=new Uint8Array(await file.arrayBuffer()),originalHash=await hash(bytes),duplicate=(await list('library')).find((f:R)=>f.originalHash===originalHash||f.sha256===originalHash);if(duplicate)return json({file:libraryCategory&&!duplicate.libraryCategory?await save(duplicate,{libraryCategory}):duplicate,duplicate:true});const key='library/'+uid+'/'+crypto.randomUUID()+'.original';await env.BUCKET.put(key,bytes);return json({file:await create('library',{name:file.name,title:file.name,path:file.name,sourceFormat:file.name.split('.').pop()?.toLowerCase(),libraryCategory,usageScope,referenceURL,size:file.size,originalHash,originalKey:key,originalName:file.name,format:file.name.split('.').pop()?.toLowerCase(),source:file.name,collection:'用户上传',conversionState:'pending',conversionVersion:0,warnings:[]},'stored')});
  }
  const b:any=await req.json();
  if(action==='libraryURL'){
@@ -66,7 +85,7 @@ export async function mineruAPI(req:Request,env:R,ctx:R):Promise<Response>{const
  }
  if(action==='libraryConvert'){
   if(f.revision!==b.revision)fail('资料已更新，请刷新',409);if(f.fileKey&&f.conversionState!=='failed')return json(f);if(f.conversionState==='running')return json(f);
-  const local=/^(md|markdown|txt|html|htm)$/.test(f.format);if(!local&&b.consent!==true)fail('请确认将所选资料发送至 MinerU');const key=local?'':await token(env,uid,get);
+  const local=/^(md|markdown|txt|html|htm)$/.test(f.format)&&f.size<=TEXT_MAX_BYTES;if(!local&&b.consent!==true)fail('请确认将所选资料发送至 MinerU');const key=local?'':await token(env,uid,get);
   // Recover a known task before creating another one, including pre-fix failed uploads.
   if(!local&&(f.batchId||f.taskId)){
    const result=await remoteResult(key);if(!result)fail('原任务状态暂不可用，请稍后刷新；未创建新任务',503);
@@ -78,7 +97,7 @@ export async function mineruAPI(req:Request,env:R,ctx:R):Promise<Response>{const
   try{
    if(local){const o=await env.BUCKET.get(f.originalKey);if(!o)fail('原件不存在',404);let text='';try{text=new TextDecoder('utf-8',{fatal:true}).decode(await o.arrayBuffer());}catch{fail('文本文件请使用 UTF-8 编码');}const html=/^(html|htm)$/.test(f.format);if(html)text=htmlToText(text,{wordwrap:false,limits:{maxInputLength:MAX},selectors:[{selector:'img',format:'skip'},{selector:'script',format:'skip'},{selector:'style',format:'skip'},{selector:'a',options:{ignoreHref:true}}]});return await finish(text,{origin:html?'本地 HTML 转换':'本地文本转换',warnings:html?['已提取 HTML 中的静态文字；脚本、样式与图片不参与转换，请对照原件核对。']:[]});}
    if(f.sourceURL){const data=await call(key,'extract/task',{url:publicURL(f.sourceURL),model_version:/\.(pdf|docx?|pptx?|xlsx?|png|jpe?g|webp|bmp|gif|jp2)$/i.test(new URL(f.sourceURL).pathname)?'vlm':'MinerU-HTML',is_ocr:true,enable_table:true,enable_formula:true,data_id:f.id});if(typeof data?.task_id!=='string')throw Error('MinerU 未返回任务标识');return json(await save(f,{taskId:data.task_id,remoteState:'pending',origin:'MinerU',isOCR:true}));}
-   const d=await call(key,'file-urls/batch',{files:[{name:f.originalName,data_id:f.id,is_ocr:true}],model_version:'vlm',enable_table:true,enable_formula:true,language:'ch'});if(typeof d?.batch_id!=='string'||!Array.isArray(d.file_urls)||d.file_urls.length!==1)throw Error('MinerU 上传响应无效');const target=providerURL(d.file_urls[0]);
+   const d=await call(key,'file-urls/batch',{files:[{name:f.originalName,data_id:f.id,is_ocr:true}],model_version:/^(html|htm)$/.test(f.format)?'MinerU-HTML':'vlm',enable_table:true,enable_formula:true,language:'ch'});if(typeof d?.batch_id!=='string'||!Array.isArray(d.file_urls)||d.file_urls.length!==1)throw Error('MinerU 上传响应无效');const target=providerURL(d.file_urls[0]);
    await env.BUCKET.put(grantKey(d.batch_id),JSON.stringify({url:target,expires:Date.now()+23*3600000}));f=await save(f,{batchId:d.batch_id,origin:'MinerU',isOCR:true,remoteState:'uploading'});return await sendFile(target);
   }catch(e:any){return json(await save(f,{conversionState:'failed',conversionError:String(e.message||'提交失败，请稍后重试').slice(0,300)},'stored'));}
  }

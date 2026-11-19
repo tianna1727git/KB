@@ -1,0 +1,5 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';
+import {uploadFileError,MAX_UPLOAD_FILES,localTextUpload} from '../lib/studio/upload-policy.mjs';
+const MB=1024*1024;
+test('standard API files allow the 200 MB boundary and reject excess, unsupported or empty files',()=>{for(const ext of ['pdf','doc','docx','ppt','pptx','xls','xlsx','html','htm','png','jpg','jpeg','jp2','webp','gif','bmp']){assert.equal(uploadFileError({name:'file.'+ext,size:200*MB}),'');assert.match(uploadFileError({name:'file.'+ext,size:200*MB+1}),/200 MB/);}assert.match(uploadFileError({name:'empty.pdf',size:0}),/为空/);assert.match(uploadFileError({name:'a.exe',size:10}),/格式/);assert.equal(MAX_UPLOAD_FILES,50);});
+test('text extensions are local additions with a separate limit, large HTML uses MinerU',()=>{assert.equal(uploadFileError({name:'a.md',size:20*MB}),'');assert.match(uploadFileError({name:'a.txt',size:20*MB+1}),/本地/);assert.equal(localTextUpload({name:'a.html',size:21*MB}),false);assert.equal(localTextUpload({name:'a.md',size:100}),true);assert.equal(localTextUpload({name:'a.pdf',size:100}),false);});

@@ -16,7 +16,8 @@
     "test:auth": "node --test tests/password-auth.test.mjs && node tests/password-auth.integration.mjs && npm run test:gateway",
     "test:gateway": "node --test tests/single-origin.test.mjs",
     "test:seo-keywords": "node --test tests/seo-keywords.test.mjs && node tests/seo-keywords.integration.mjs",
-    "test:material-categories": "node --test tests/material-categories.test.mjs && node tests/material-categories.integration.mjs"
+    "test:material-categories": "node --test tests/material-categories.test.mjs && node tests/material-categories.integration.mjs",
+    "test:upload-policy": "node --test tests/upload-policy.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

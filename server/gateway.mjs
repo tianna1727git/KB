@@ -31,9 +31,13 @@ export function createGateway(env) {
   if (publicURL.protocol !== 'https:' || publicURL.origin !== env.AUTH_PUBLIC_ORIGIN || typeof env.AUTH_PROXY_SECRET !== 'string' || env.AUTH_PROXY_SECRET.length < 43 ||
     env.AUTH_TOPOLOGY !== 'single-origin' || env.AUTH_WORKSPACE !== 'gateway' || env.STUDIO_AUTH_MODE !== 'password' ||
     env.AUTH_KB_ORIGIN !== publicURL.origin || env.AUTH_PMI_ORIGIN !== publicURL.origin) throw Error('Invalid single-origin gateway configuration');
+  const pmiBodyMB=Number(env.GATEWAY_PMI_MAX_BODY_MB||40),kbBodyMB=Number(env.GATEWAY_KB_MAX_BODY_MB||40);
+  if(!Number.isInteger(pmiBodyMB)||pmiBodyMB<40||pmiBodyMB>201)throw Error('Invalid PMI upload body limit');
+  if(!Number.isInteger(kbBodyMB)||kbBodyMB<40||kbBodyMB>201)throw Error('Invalid Payo upload body limit');
   const upstreams = {kb: backend(env.KB_UPSTREAM), pmi: backend(env.PMI_UPSTREAM)};
   if (upstreams.kb.origin === upstreams.pmi.origin) throw Error('Workspaces must use different backends');
   return createServer(async (incoming, outgoing) => {
+    let tooLarge=false,limiter;
     const abort = new AbortController();
     incoming.once('aborted', () => abort.abort());
     outgoing.once('close', () => {if (!outgoing.writableEnded) abort.abort();});
@@ -49,10 +53,14 @@ export function createGateway(env) {
       const clientIP = incoming.headers['x-real-ip'];
       headers.set('cf-connecting-ip', typeof clientIP === 'string' && isIP(clientIP) ? clientIP : incoming.socket.remoteAddress || 'unknown');
       headers.delete('x-real-ip');
+      const uploadRoute=url.pathname==='/api/studio/librarySubmitStream';
+      let bodyLimit=(uploadRoute?Math.max(pmiBodyMB,kbBodyMB):40)*1024*1024;
+      const rejectSize=()=>{incoming.unpipe();incoming.resume();if(limiter&&!limiter.destroyed)limiter.destroy();outgoing.writeHead(413,{'content-type':'application/json; charset=utf-8','cache-control':'no-store'});outgoing.end(JSON.stringify({error:'上传请求超过当前工作空间大小限制，请检查文档或图片大小'}));};
+      if(Number(incoming.headers['content-length'])>bodyLimit){rejectSize();return;}
       let bytes = 0;
-      const limiter = new Transform({transform(chunk, encoding, done) {
+      limiter = new Transform({transform(chunk, encoding, done) {
         bytes += chunk.length;
-        done(bytes > 40 * 1024 * 1024 ? Error('Request too large') : null, chunk);
+        tooLarge=bytes>bodyLimit;if(tooLarge){incoming.unpipe(limiter);incoming.resume();}done(tooLarge?Error('Request too large'):null,chunk);
       }});
       const hasBody = !['GET', 'HEAD'].includes(incoming.method);
       const body = hasBody ? incoming.pipe(limiter) : undefined;
@@ -61,6 +69,8 @@ export function createGateway(env) {
       const auth = await passwordAuth(request, env);
       if (auth.response) {await send(auth.response, outgoing); return;}
       if (!['kb', 'pmi'].includes(auth.workspace)) throw Error('No workspace');
+      bodyLimit=(uploadRoute?(auth.workspace==='kb'?kbBodyMB:pmiBodyMB):40)*1024*1024;
+      if(bytes>bodyLimit||Number(incoming.headers['content-length'])>bodyLimit){tooLarge=true;rejectSize();return;}
       const target = upstreams[auth.workspace];
       const forwarded = cleanHeaders(auth.request.headers);
       for (const key of [...forwarded.keys()]) if (key.startsWith('oai-authenticated-') || key.startsWith('x-studio-') || key.startsWith('cf-')) forwarded.delete(key);
@@ -89,6 +99,7 @@ export function createGateway(env) {
         else upstream.end();
       });
     } catch {
+      if(tooLarge&&!outgoing.headersSent){outgoing.writeHead(413,{'content-type':'application/json; charset=utf-8','cache-control':'no-store'});outgoing.end(JSON.stringify({error:'上传请求超过当前工作空间大小限制'}));return;}
       if (!outgoing.headersSent) {outgoing.writeHead(502, {'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store'}); outgoing.end('工作台暂时不可用，请稍后重试。');}
       else outgoing.destroy();
     }

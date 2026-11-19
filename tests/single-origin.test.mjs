@@ -124,3 +124,12 @@ test('configuration reuses account IDs, model keys and database bindings; refuse
 });
 
 test.after(()=>rmSync(directory,{recursive:true,force:true}));
+
+test('Payo upload gateway streams above 40 MB while PMI retains its existing limit',async()=>{
+ const db=openAuthDatabase(join(directory,'upload-gateway.sqlite')),backends=[];let gateway;
+ try{
+  const ports=[];for(const workspace of ['kb','pmi']){const server=createServer(async(req,res)=>{try{let size=0;for await(const chunk of req)size+=chunk.length;res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({workspace,size}));}catch{res.destroy();}});backends.push(server);ports.push(await listen(server));}
+  gateway=createGateway({...environment,DB:db,GATEWAY_KB_MAX_BODY_MB:'201',KB_UPSTREAM:'http://127.0.0.1:'+ports[0],PMI_UPSTREAM:'http://127.0.0.1:'+ports[1]});const port=await listen(gateway),body=Buffer.alloc(41*1024*1024,65);
+  for(const account of accounts){const login=await call(port,'/auth/login',{method:'POST',body:new URLSearchParams({username:account.username,password:'test-password-for-gateway'}).toString()});assert.equal(login.status,303);const cookie=login.headers['set-cookie'][0].split(';')[0];const response=await call(port,'/api/studio/librarySubmitStream',{method:'POST',cookie,body,headers:{'content-type':'application/octet-stream','content-length':String(body.length)}});assert.equal(response.status,account.workspace==='kb'?200:413,response.text);if(account.workspace==='kb')assert.equal(JSON.parse(response.text).size,body.length);else{const chunked=await call(port,'/api/studio/librarySubmitStream',{method:'POST',cookie,body,headers:{'content-type':'application/octet-stream','transfer-encoding':'chunked'}});assert.equal(chunked.status,413,chunked.text);}}
+ }finally{if(gateway)await close(gateway);for(const server of backends)await close(server);db.close();}
+});

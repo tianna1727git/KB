@@ -51,7 +51,7 @@ export async function api(req:Request,env:any){try{
  if(action.startsWith('seoResearch'))return await seoKeywordsAPI(req,env,{uid,get,list,save,create,fail,json});
  if(['insights','insightsSettings','insightsRefresh','insightsRefreshDue','insightsResolveSource'].includes(action))return await insightsAPI(req,env,{get,list,uid,fail,json});
  if(['libraryUsageUpdate','referenceSettings'].includes(action))return await usageAPI(req,env,{get,list,uid,fail,json});
- if(['librarySubmit','mineruSettings','libraryRawUpload','libraryURL','libraryConvert','libraryConvertPoll','libraryMarkdownSave','libraryAsset','libraryVersions'].includes(action))return await mineruAPI(req,env,{get,list,save,create,fail,json,uid});
+ if(['librarySubmitStream','librarySubmit','mineruSettings','libraryRawUpload','libraryURL','libraryConvert','libraryConvertPoll','libraryMarkdownSave','libraryAsset','libraryVersions'].includes(action))return await mineruAPI(req,env,{get,list,save,create,fail,json,uid});
  if(action==='knowledgeBatch')return await knowledgeBatchAPI(req,env,{get,list,save,create,fail,json,uid,email});
  if(action.toLowerCase().startsWith('demo'))fail('接口不存在',404);
  if(action==='knowledgePacketExport'||action==='knowledgePacketImport')return await knowledgePacketAPI(req,env,{get,list,save,fail,json});
