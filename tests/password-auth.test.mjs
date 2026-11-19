@@ -117,7 +117,12 @@ test('wrong and unknown accounts have identical errors, then durable limits reje
   const {kb} = environments();
   const wrong = (await login(kb, 'kb-admin', 'wrong')).response;
   const unknown = (await login(kb, 'unknown', 'wrong')).response;
-  assert.equal(wrong.status, 401); assert.equal(await wrong.text(), await unknown.text());
+  assert.equal(wrong.status, 401);
+  const normalizedHTML = async response => {
+    const nonce = response.headers.get('Content-Security-Policy').match(/script-src 'nonce-([^']+)'/)[1];
+    return (await response.text()).replace('nonce="' + nonce + '"', 'nonce=""');
+  };
+  assert.equal(await normalizedHTML(wrong), await normalizedHTML(unknown));
   for (let i = 1; i < 10; i++) assert.equal((await login(kb, 'kb-admin', 'wrong')).response.status, 401);
   assert.equal((await login(kb)).response.status, 429);
 });
