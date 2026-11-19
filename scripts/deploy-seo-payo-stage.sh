@@ -4,7 +4,7 @@ set -Eeuo pipefail
 trap 'printf "Deployment stopped at line %s: %s\n" "$LINENO" "$BASH_COMMAND" >&2' ERR
 repo=/home/ubuntu/payo-staging/kb
 service=payo-stage-kb
-target=ad4a9b328fa4b2d3526129e2fb4929ce0929997b
+target=9535312c32d3be0ed6b3a746a844a712cae80fd6
 [[ -d "$repo/.git" || -f "$repo/.git" ]] || { echo 'Stage checkout not found; no changes made.' >&2; exit 1; }
 cd "$repo"
 exec 9>/home/ubuntu/payo-staging/.seo-deploy.lock
@@ -91,6 +91,7 @@ for attempt in {1..15}; do
   sleep 2
 done
 $healthy || { echo 'Local authenticated service did not become ready.' >&2; exit 1; }
+sudo bash "$repo/scripts/configure-payo-stage-upload-limits.sh"
 echo "Payo Stage deployed: $target"
 echo "Rollback artifacts: $backup/previous-dist"
 echo 'Refresh https://stage.tianna.net.cn/ and sign in to Payo. Real Baidu credentials still need verification.'
