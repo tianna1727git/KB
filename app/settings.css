@@ -1,0 +1,118 @@
+.material-field-settings fieldset {border:0; padding:0; margin:0; min-width:0;}
+.material-field-properties {display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px;}
+.material-field-settings label {display:grid; gap:8px;}
+.material-cascade-editor {display:flex; gap:16px; overflow-x:auto; padding:12px 0;}
+.material-cascade-column {flex:1 0 260px; min-width:260px; max-width:360px; border:1px solid #e6e1ef; border-radius:8px; padding:16px;}
+.material-cascade-column ul {list-style:none; padding:0; margin:0 0 16px; max-height:300px; overflow:auto;}
+.material-cascade-column li button {display:block; text-align:left; width:100%; margin:4px 0; white-space:normal; overflow-wrap:anywhere;}
+.material-cascade-column li small {display:block; font-size:11px;}
+.material-cascade-column li button.active {background:#f2ecfa; color:var(--purple); border-color:var(--purple);}
+.material-option-editor {display:grid; gap:14px; margin-top:20px; border-top:1px solid #e6e1ef; padding-top:16px;}
+.material-migrations {margin:20px 0; padding:20px; border:1px solid #e3c686; border-radius:8px;}
+.material-migrations label {margin:16px 0; overflow-wrap:anywhere;}
+.material-field-actions {margin-top:24px;}
+
+.material-option-row {display:flex; align-items:center; gap:6px;}
+.material-cascade-column li .material-option-edit {flex:0 0 36px; width:36px; display:flex; align-items:center; justify-content:center; padding:8px;}
+.material-option-editor h4,.material-option-editor p {margin:0;}
+.material-option-editor p small {display:block; margin-top:6px; overflow-wrap:anywhere;}
+.material-option-dialog {position:fixed; z-index:101; top:50%; left:50%; transform:translate(-50%,-50%); width:min(520px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); overflow:auto; padding:24px; background:#fff; border:1px solid #e6e1ef; border-radius:12px; box-shadow:0 20px 60px #0003;}
+.material-option-dialog header {display:flex; align-items:center; justify-content:space-between; gap:12px;}
+.material-option-dialog h2 {margin:0;}
+.material-option-dialog form {display:grid; gap:20px; margin-top:24px;}
+.material-option-dialog label {display:grid; gap:8px;}
+.material-option-dialog input[type=text] {display:block; width:100%; min-height:44px; padding:10px 12px; color:#363636; background:#fff; border:1px solid #a99cba; border-radius:4px;}
+.material-option-dialog input[type=text]:focus {outline:2px solid var(--purple); outline-offset:2px;}
+.material-option-dialog footer {justify-content:flex-end;}
+
+/* Shared Cascader: one field, searchable column popup, partial-path selection. */
+.material-cascader-field {min-width:0; width:100%;}
+.material-cascader-trigger {width:100%; display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:44px; padding:11px 14px; background:#fff; border:1px solid #ded4ee; border-radius:6px; color:#363636; text-align:left;}
+.material-cascader-trigger span {flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.material-cascader-trigger.is-empty {color:#8c8894;}
+.material-cascader-trigger[aria-expanded=true] {border-color:var(--purple); box-shadow:0 0 0 3px color-mix(in srgb,var(--purple) 6%,transparent);}
+.material-cascader-popover {z-index:350; width:max-content; min-width:280px; max-width:calc(100vw - 32px); background:#fff; border:1px solid #e5dfed; border-radius:8px; box-shadow:0 8px 32px #28144024; overflow:hidden;}
+.material-cascader-search {display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid #eeeaf3; color:#91869e;}
+.material-cascader-search input {flex:1; min-width:0; border:0; padding:4px; outline:none; font-size:13px;}
+.material-cascader-search button {padding:3px; border:0;}
+.material-cascader-columns {display:flex; overflow-x:auto; max-width:calc(100vw - 32px);}
+.material-cascader-options {flex:0 0 190px; max-height:260px; overflow-y:auto; padding:6px; border-right:1px solid #eeeaf3;}
+.material-cascader-options:last-child {border-right:0;}
+.material-cascader-options button,.material-cascader-matches button {display:flex; align-items:center; gap:8px; width:100%; border:0; background:transparent; min-height:36px; padding:8px 10px; border-radius:4px; text-align:left; font-size:13px; color:#514b5b;}
+.material-cascader-options button span {flex:1;}
+.material-cascader-options button:hover,.material-cascader-options button.active,.material-cascader-matches button:hover {background:#f3eefb; color:var(--purple);}
+.material-cascader-matches {max-height:260px; overflow:auto; padding:6px;}
+.material-cascader-matches p {padding:16px; font-size:13px; color:#8c8894;}
+.material-cascader-all {border:0; border-bottom:1px solid #eeeaf3; border-radius:0; width:100%; text-align:left; font-size:13px;}
+.material-cascader-popover footer {display:flex; align-items:center; gap:16px; padding:10px 12px; border-top:1px solid #eeeaf3;}
+.material-cascader-popover footer span {flex:1; max-width:380px; font-size:11px; color:#8b8197; overflow-wrap:anywhere;}
+.material-cascader-popover footer button {font-size:12px; padding:6px 12px; min-height:30px;}
+
+/* Compact option management, with contextual row actions rather than large cards. */
+.material-field-properties {grid-template-columns:repeat(3,minmax(0,1fr)) 130px; background:#faf9fc; border:1px solid #ece7f2; border-radius:8px; padding:16px 20px; margin:22px 0 16px; align-items:center;}
+.material-field-properties > div {display:grid; gap:8px;}
+.material-field-caption,.material-field-properties label {font-size:12px; color:#83798f;}
+.material-field-properties strong,.material-field-properties code {font-size:14px; color:#42384d;}
+.material-field-properties .badge {width:fit-content;}
+.material-field-properties select {background:#fff; border:1px solid #ded7e7; border-radius:5px; padding:7px 10px;}
+.material-editor-heading {display:flex; align-items:center; gap:14px; margin-top:26px;}
+.material-editor-heading h3 {font-size:15px; margin:0;}
+.material-editor-heading span {font-size:12px; color:#92869c;}
+.material-cascade-editor {gap:0; border:1px solid #e6e0ed; border-radius:8px; padding:0; margin-top:14px; background:#fff;}
+.material-cascade-column {padding:0; border:0; border-right:1px solid #e9e4ef; border-radius:0; min-width:230px; flex:1 0 230px; max-width:none; min-height:330px;}
+.material-cascade-column:last-child {border-right:0;}
+.material-column-heading {display:flex; align-items:center; justify-content:space-between; padding:14px 16px; background:#faf9fc; border-bottom:1px solid #ece7f2;}
+.material-column-heading h3 {font-size:13px; margin:0;}
+.material-column-heading span {font-size:11px; color:#a096aa;}
+.material-cascade-column ul {padding:8px; margin:0; max-height:330px;}
+.material-cascade-column li {border-radius:5px; gap:0; position:relative;}
+.material-cascade-column li:hover {background:#faf8fd;}
+.material-cascade-column li button:first-child {display:grid; grid-template-columns:minmax(0,1fr) 14px; gap:4px 8px; margin:0; border:0; border-radius:5px; padding:10px; min-width:0; flex:1; width:auto;}
+.material-cascade-column li button:first-child strong {font-size:13px; font-weight:500; grid-column:1;}
+.material-cascade-column li button:first-child small {font-size:10px; color:#a298ab; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; grid-column:1;}
+.material-cascade-column li button:first-child > svg {grid-column:2; grid-row:1/3; align-self:center; color:#a89ab6;}
+.material-cascade-column li .material-option-edit {width:28px; flex-basis:28px; min-height:28px; padding:5px; margin:0; border:0; background:transparent; color:#a294b0;}
+.material-cascade-column > button {border:0; margin:8px 12px 12px; font-size:12px; color:var(--purple); background:transparent;}
+.material-cascade-column > .subtle {text-align:center; margin:90px 12px; font-size:12px; color:#b0a7b7;}
+.material-field-actions {justify-content:flex-end; padding-top:20px; border-top:1px solid #eee9f4;}
+
+/* Hierarchical knowledge navigation: compact rows, indentation and branches. */
+.knowledge-facet-list .material-category-tree {display:block; grid-column:1/-1;}
+.material-category-tree ul {list-style:none; padding:0; margin:0;}
+.material-category-tree ul[role=group] {position:relative;}
+.material-tree-row {display:flex; align-items:center; gap:2px; border-radius:5px; min-height:36px; margin:2px 0; padding-right:8px;}
+.material-tree-row:hover {background:#faf8fd;}
+.material-tree-row.selected {background:#f2ecfa;}
+.material-category-tree .material-tree-toggle {width:22px; min-width:22px; min-height:26px; border:0; background:transparent; padding:3px; color:#a394b1;}
+.material-tree-toggle svg {transition:transform .15s;}
+.material-tree-toggle svg.expanded {transform:rotate(90deg);}
+.material-tree-spacer {width:22px; flex:0 0 22px;}
+.material-category-tree .material-tree-label {display:flex; align-items:center; gap:8px; flex:1; min-width:0; min-height:34px; border:0; padding:5px 0; background:transparent; color:#6a6075; text-align:left; font-size:12px;}
+.material-tree-label > svg {flex-shrink:0; color:#ab9bbd;}
+.material-tree-label span {flex:1; min-width:0; overflow-wrap:anywhere;}
+.material-tree-label b {font-size:11px; font-weight:400; color:#a79ab3; padding-left:5px;}
+.material-tree-row.selected .material-tree-label,.material-tree-row.selected .material-tree-label svg {color:var(--purple); font-weight:600;}
+@media(max-width:600px){.material-field-properties {grid-template-columns:1fr 1fr; padding:14px; gap:18px;}.material-editor-heading {align-items:flex-start; flex-direction:column; gap:6px;}.material-cascader-options {flex-basis:170px;}.material-cascader-popover footer span {max-width:170px;}}
+.material-field-help {margin:12px 0; font-size:12px; color:#93859f;}
+.material-field-help summary {cursor:pointer;}
+.material-field-help p {line-height:1.8; max-width:780px;}
+.material-field-properties code {display:inline; padding:0; margin:0; border:0; background:transparent; border-radius:0; line-height:1.5; white-space:normal; overflow-wrap:anywhere;}
+/* Compact settings entry stays with account controls, outside primary navigation. */
+.profile > div{min-width:0}.profile b,.profile small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.profile .sidebar-settings{position:relative;flex-shrink:0;width:32px;height:32px;min-height:32px;padding:0;border:0;border-radius:8px;background:transparent;color:var(--muted)}
+.profile .sidebar-settings:hover,.profile .sidebar-settings[aria-current="page"]{background:var(--pink);color:var(--purple)}
+.sidebar-settings-tip{position:absolute;bottom:calc(100% + 10px);right:0;padding:6px 9px;border-radius:6px;background:#363636;color:#fff;font-size:11px;line-height:1.5;white-space:nowrap;pointer-events:none;opacity:0;visibility:hidden;transition:opacity .15s}
+.sidebar-settings:hover .sidebar-settings-tip,.sidebar-settings:focus-visible .sidebar-settings-tip{opacity:1;visibility:visible}
+@media(max-width:600px){.profile .sidebar-settings{width:36px;height:36px;min-height:36px}.sidebar-settings-tip{left:0;right:auto}}
+
+.settings-layout{width:100%;min-width:0}
+.settings-navigation{display:flex;align-items:stretch;gap:28px;width:100%;height:48px;margin:0 0 24px;border-bottom:1px solid var(--border)}
+.settings-navigation [role="tab"]{position:relative;display:inline-flex;align-items:center;justify-content:center;flex:none;min-height:0;height:48px;margin:0;padding:0 0 14px;border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;color:var(--muted);font-size:14px;font-weight:500;line-height:20px;box-shadow:none}
+.settings-navigation [role="tab"]:hover{background:transparent;border-color:transparent;color:var(--ink)}
+.settings-navigation [role="tab"][data-state="active"]{border-bottom-color:var(--purple);color:var(--purple)}
+.settings-content{min-width:0;outline:none}.settings-content:focus-visible{outline:2px solid var(--purple);outline-offset:5px}
+.settings-content > :first-child{margin-top:0}
+@media(max-width:600px){.settings-navigation{gap:24px;margin-bottom:20px}.settings-navigation [role="tab"]{font-size:13px}}
+
+.knowledge-filters .material-cascader-field{min-width:200px;max-width:460px}
+.profile>div{min-width:0}.profile b,.profile small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
