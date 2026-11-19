@@ -4,7 +4,7 @@ set -Eeuo pipefail
 trap 'printf "Deployment stopped at line %s: %s\n" "$LINENO" "$BASH_COMMAND" >&2' ERR
 repo=/home/ubuntu/payo-staging/kb
 service=payo-stage-kb
-target=13c67b0c20134ae0acf97957c74d93a109a24f23
+target=061f49e598620795976c1a611ccfaeecfd51c045
 [[ -d "$repo/.git" || -f "$repo/.git" ]] || { echo 'Stage checkout not found; no changes made.' >&2; exit 1; }
 cd "$repo"
 exec 9>/home/ubuntu/payo-staging/.seo-deploy.lock
