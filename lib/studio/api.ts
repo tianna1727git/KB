@@ -1,3 +1,4 @@
+import {seoKeywordsAPI} from './seo-keywords-api';
 import {faqCandidates,appendFAQ,validateFAQ,FAQ_MISSING} from './article-faq.mjs';
 import {insightDays,withInsightPolicy,insightPolicyKey} from './insights-policy.mjs';
 import {publicationPackage} from './publishing.mjs';
@@ -46,6 +47,7 @@ export async function api(req:Request,env:any){try{
  async function save(r:R,p:R,state=r.state){const res=await env.DB.prepare('UPDATE studio_records SET payload=?,state=?,revision=revision+1,updated=? WHERE id=? AND owner=? AND revision=?').bind(JSON.stringify({...r,...p}),state,now(),r.id,uid,r.revision).run();if(res.meta.changes!==1)fail('内容已更新，请刷新后重试',409);return get(r.id);}
  async function categoryMetadata(source:R){const linked=source.kind==='document'?((await list('library')).find((f:R)=>f.id===source.libraryId)||(await list('library')).find((f:R)=>f.sha256===source.hash)):source;const sourceId=linked?.id||source.id;try{const metadata=await get('library-metadata:'+uid+':'+sourceId,'libraryMetadata');return {libraryCategory:metadata.libraryCategory,categoryRevision:metadata.revision,...sourceUsage(linked||source,(await list('libraryUsage')).find((m:R)=>m.sourceId===sourceId))};}catch(e:any){if(e.code!==404)throw e;return {categoryRevision:0,...sourceUsage(linked||source,(await list('libraryUsage')).find((m:R)=>m.sourceId===sourceId))};}}
  const path=new URL(req.url).pathname.replace('/api/studio/','').split('/'),action=path[0];
+ if(action.startsWith('seoResearch'))return await seoKeywordsAPI(req,env,{uid,get,list,save,create,fail,json});
  if(['insights','insightsSettings','insightsRefresh','insightsRefreshDue','insightsResolveSource'].includes(action))return await insightsAPI(req,env,{get,list,uid,fail,json});
  if(['libraryUsageUpdate','referenceSettings'].includes(action))return await usageAPI(req,env,{get,list,uid,fail,json});
  if(['librarySubmit','mineruSettings','libraryRawUpload','libraryURL','libraryConvert','libraryConvertPoll','libraryMarkdownSave','libraryAsset','libraryVersions'].includes(action))return await mineruAPI(req,env,{get,list,save,create,fail,json,uid});
