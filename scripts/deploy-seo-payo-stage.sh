@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Run as ubuntu on the existing Stage server. Never updates production or PMI.
-set -euo pipefail
+set -Eeuo pipefail
+trap 'printf "Deployment stopped at line %s: %s\n" "$LINENO" "$BASH_COMMAND" >&2' ERR
 repo=/home/ubuntu/payo-staging/kb
 service=payo-stage-kb
 target=99930c0c411509582279f8d4f16c72dba891bd62
@@ -9,14 +10,23 @@ cd "$repo"
 exec 9>/home/ubuntu/payo-staging/.seo-deploy.lock
 flock -n 9 || { echo 'Another SEO deployment is running.' >&2; exit 1; }
 [[ "$(systemctl show "$service" -p WorkingDirectory --value)" == "$repo" ]] || { echo 'Unexpected service directory; stopped.' >&2; exit 1; }
-git diff --quiet
-git diff --cached --quiet
+if ! git diff --quiet -- . ':!pnpm-workspace.yaml' || ! git diff --cached --quiet; then
+  echo 'Local source changes found; preserved without overwriting. Changed filenames:' >&2
+  git status --short
+  exit 1
+fi
 test -s dist/server/wrangler.stage.json
 test -d node_modules
 sudo -v
 git fetch origin feat/seo-keyword-research
 git cat-file -e "$target^{commit}"
 git merge-base --is-ancestor "$target" FETCH_HEAD
+# Permit the server's local pnpm settings only when the feature has not changed
+# the tracked version. Git switch will retain the local modification in place.
+git diff --quiet HEAD "$target" -- pnpm-workspace.yaml || {
+  echo 'Target changes pnpm-workspace.yaml; resolve the configuration before deployment.' >&2
+  exit 1
+}
 previous=$(git rev-parse HEAD)
 previous_ref=$(git symbolic-ref --short -q HEAD || true)
 backup=$(mktemp -d /home/ubuntu/payo-staging/payo-seo-backup.XXXXXX)
@@ -42,8 +52,10 @@ cleanup() {
 }
 trap cleanup EXIT
 cp -p dist/server/wrangler.stage.json "$backup/wrangler.stage.json"
+cp -p pnpm-workspace.yaml "$backup/pnpm-workspace.yaml"
 git worktree add --detach "$build_dir" "$target"
 worktree=true
+cp -p "$backup/pnpm-workspace.yaml" "$build_dir/pnpm-workspace.yaml"
 # This feature changes no dependency versions. Refuse reuse if lockfiles differ.
 cmp pnpm-lock.yaml "$build_dir/pnpm-lock.yaml"
 ln -s "$repo/node_modules" "$build_dir/node_modules"
