@@ -1,6 +1,6 @@
 # Stage login robot
 
-The shared login gateway renders a graphite robot based on the supplied key-holding and open-head references. `lib/studio/login-robot.mjs` embeds a transparent three-pose PNG (front, back, open head); `login-font.mjs` embeds the existing handwriting font. Neither asset requires an external request.
+The shared login gateway renders a sparse pencil-outline robot based on the supplied speech-bubble sketch, key-holding and open-head references. Primary contours carry more weight than interior marks; slight breaks and secondary strokes preserve pencil character without dense shading. `lib/studio/login-robot.mjs` embeds a transparent three-pose PNG (front, back, open head); `login-font.mjs` embeds the existing handwriting font. Neither asset requires an external request.
 
 The idle CSS loop opens the head and moves a separate SVG key into the mouth. Password hover, focus, or a nonempty field overrides the loop and shows the back pose. CSS checks field state only; no script reads or logs credentials. Reduced-motion preferences disable movement while preserving the privacy pose. The existing native POST login and authentication checks remain in place.
 
