@@ -80,15 +80,16 @@
 .pencil-bar details { position: relative; }
 .pencil-bar summary { cursor: pointer; list-style: none; }
 .pencil-bar summary::-webkit-details-marker { display: none; }
-.pencil-bar summary img { display: block; width: 43px; height: 43px; padding: 4px; border: 1px solid #aeac9f; border-radius: 48% 52% 49% 50%; }
+.pencil-bar summary img { display: block; width: 43px; height: 43px; padding: 0; border: 0; border-radius: 0; filter: url(#payo-pencil-wobble); }
 .pencil-bar details div { position: absolute; right: 0; background: #fbfaf6; border: 1px solid #aaa69d; min-width: 165px; padding: 6px; }
 .pencil-bar details :is(button,a) { display:block; text-align:left; padding:8px; color:inherit; border:0; background:none; text-decoration:none; }
 .pencil-nav { position:fixed; inset:var(--bar) auto 0 0; width:var(--rail); display:flex; flex-direction:column; align-items:center; gap:15px; padding-top:min(9vh,84px); overflow:auto; background:#f6f4ed; border-right:1px solid #cecabe; }
 .pencil-nav button { flex:none; position:relative; background:transparent; border:0; padding:6px; width:47px; height:46px; border-radius:5px; }
-.pencil-nav button:is(:hover,[aria-current]) { background:#e8e6df; }
-.pencil-nav button[aria-current]::before { content:''; position:absolute; left:1px; top:10px; height:26px; border-left:2px solid #4a4945; transform:rotate(2deg); }
+.pencil-nav button:is(:hover,[aria-current]) { background:transparent; box-shadow:none; }
+.pencil-nav button:is([aria-current],:focus-visible)::before { content:''; position:absolute; left:-4px; top:5px; width:10px; height:36px; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 36'%3E%3Cpath d='M6 1Q3 8 5 13T4 25Q6 31 3 35' fill='none' stroke='%234a4945' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M8 3Q6 11 7 19T5 33' fill='none' stroke='%234a4945' stroke-opacity='.32' stroke-width='.8'/%3E%3C/svg%3E") center/contain no-repeat; transform:rotate(1deg); }
+.pencil-nav button:focus-visible { outline:0; }
 .pencil-nav button:nth-child(4) { margin-top:30px; }
-.pencil-nav img { width:34px; height:34px; }
+.pencil-nav img { width:34px; height:34px; filter:url(#payo-pencil-wobble); }
 .pencil-nav small { position:absolute; right:0; top:0; background:#363636; color:white; border-radius:6px; padding:0 3px; }
 .pencil-shell[data-view="content"] main { padding: clamp(40px,7vw,88px) 7.3vw; background:#fbfaf6; }
 .pencil-shell[data-view="content"] .app-footer { display:none; }

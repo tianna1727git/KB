@@ -74,6 +74,7 @@ export default function Studio(){
      </button>;
    })}
   </nav><div className="main-shell"><header className="pencil-bar">
+    <button className="pencil-agents-entry" type="button" title="Agents 与 Flow" aria-label="Agents 与 Flow" aria-current={view==='settings'&&settingsTab==='agents'?'page':undefined} onClick={()=>nav('agents')}><img src="/pencil/agents.svg" alt=""/></button>
    <details key={view}><summary aria-label="Personal settings" title="Personal settings"><img src="/pencil/profile.svg" alt=""/></summary>
      <div><button onClick={e=>{e.currentTarget.closest('details')?.removeAttribute('open');nav('settings');}}>Workspace settings</button><a href="/auth/logout" target="_top">Log out</a></div>
    </details></header><main>

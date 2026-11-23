@@ -1,12 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="7" fill="#fbfaf7"/>
-  <g fill="#fbfaf7" stroke="#35332e" stroke-width="1.8" stroke-linejoin="round">
-    <path d="m12 6 .5-3 2.3-.2.2 3"/>
-    <path d="M3 23C1.9 12.8 6 6.2 13.2 6c7.5-.4 11.1 4.7 11.4 11.9l-.4 6.3-20.6.2Z"/>
-    <path d="m4 24 .4 2.6 18.2.1 1.1-2.6Z"/>
-    <path d="M17.9 13.5c-5.8-1.8-7.7 6.4-2.3 8.4l5-.1 1.1-7Z"/>
-    <ellipse cx="20.3" cy="18.3" rx="3.1" ry="3.7"/>
-    <path d="m24.1 14.6 4.2 1.1-.2 5.1-4.2.2c-3.6-.3-3.8-6.2.2-6.4Z"/>
-    <ellipse cx="28" cy="18.3" rx="2" ry="2.8"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <defs><filter id="pencil"><feTurbulence baseFrequency=".27" numOctaves="2" result="grain"/><feDisplacementMap in="SourceGraphic" in2="grain" scale=".85"/></filter></defs>
+  <g filter="url(#pencil)" fill="none" stroke="#35332e" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M24 4c-10.6 0-19 8.1-19 19.1S13.1 43 24.5 43 43 34.1 43 23 34.7 4.1 24 4Z"/>
+    <path d="M24.2 11.6c-5.2-.1-8.1 4.3-8 9.1.1 5.4 3.4 9.2 8.1 9.2 4.9 0 8-4.1 7.9-9.3-.1-4.9-3-8.9-8-9Z"/>
+    <path d="M10.1 37.6c2.8-5.6 7.7-8.5 14.1-8.5 6.2 0 11.1 2.8 13.8 8.1"/>
+    <path d="M24 13.2c-3.5 0-5.8 2.6-5.9 6.3m-7.8 18.1c3.7-4.4 8.2-6.4 13.8-6.4 5.4 0 10 1.9 13.6 6.2" opacity=".3" stroke-width="1" transform="translate(.6 .6)"/>
   </g>
 </svg>

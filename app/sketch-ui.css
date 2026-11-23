@@ -33,7 +33,9 @@ body {
   background-size: 7px 7px;
   color: var(--ink);
   font-family: "Payo Moonless", "Payo Source Han Sans CN", "PingFang SC", "Microsoft YaHei", sans-serif;
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 500;
+  font-synthesis: weight;
 }
 
 button, input, select, textarea { font-family: inherit; }
@@ -48,6 +50,8 @@ button, .button {
   color: var(--ink);
   box-shadow: 1px 1px 0 var(--paper-shadow);
   transition: background-color .16s ease, box-shadow .16s ease, transform .16s ease;
+  font-size: 13px;
+  font-weight: 600;
 }
 button:hover:not(:disabled), .button:hover {
   background: #f4f1e9;
@@ -56,7 +60,8 @@ button:hover:not(:disabled), .button:hover {
   transform: translateY(-1px) rotate(-.15deg);
 }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-  outline: 2px dashed #777168;
+  outline: 1px solid #777168;
+  border-radius: 5px 8px 4px 7px;
   outline-offset: 3px;
 }
 button.primary, .primary {
@@ -100,13 +105,13 @@ input[type="checkbox"], input[type="radio"] { accent-color: #625d55; }
   height: 48px;
   min-height: 48px;
   padding: 5px;
-  border: 1px solid #aeac9f;
-  border-radius: 5px 7px 4px 6px;
+  border: 0;
+  border-radius: 0;
   background: transparent;
   box-shadow: none;
 }
-.pencil-agents-entry img { display: block; width: 34px; height: 34px; }
-.pencil-agents-entry:is(:hover, [aria-current="page"]) { background: #e8e6df; }
+.pencil-agents-entry img { display: block; width: 38px; height: 38px; filter:url(#payo-pencil-wobble); }
+.pencil-agents-entry:is(:hover, [aria-current="page"]) { background: transparent; box-shadow:none; }
 
 /* Give cards and work areas the uneven, lightly doubled outline of pencil sketches. */
 :where(.stat, .hero-flow, .starter-task, .agent-card, .panel, .card, .seo-config-card,
@@ -134,6 +139,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: #625d55; }
 }
 .starter-task { background: #f7f5ef; }
 .starter-icon, .agent-icon, .workspace-avatar { border: 1px solid #969188; }
+.pencil-shell :is(.starter-icon,.agent-icon,.workspace-avatar,.file-icon,.flow-icon,.empty-icon,.upload-icon) { border:0 !important; box-shadow:none !important; }
 .agent-icon, .starter-icon { background: #efede7 !important; color: #5f5a52 !important; }
 .agent-icon.writer, .agent-icon.checker { background: #efede7 !important; color: #5f5a52 !important; }
 .content-launcher, .content-insights, .seo-config-card, .seo-new, .seo-job,
@@ -176,6 +182,33 @@ a { color: #514b43; }
   transform: rotate(-.08deg);
   box-shadow: inset 0 0 0 1px #4a484408, 1px 1px 0 var(--paper-shadow),
     -.5px -.5px 0 color-mix(in srgb, var(--pencil) 22%, transparent) !important;
+}
+
+/* Slightly wobble pencil strokes across controls and keep icons in one graphite style. */
+.pencil-shell :is(button:not(.text-btn), a.button, input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  filter:url(#payo-pencil-wobble);
+}
+.pencil-shell :is(svg.lucide,.pencil-nav img,.pencil-bar img,.pencil-agents-entry img) {
+  filter:url(#payo-pencil-wobble);
+}
+.pencil-shell svg.lucide { stroke-width:2.1; }
+.pencil-shell button:focus-visible,.pencil-shell a:focus-visible,.pencil-shell .pencil-bar summary:focus-visible {
+  outline:1px solid #777168;
+  outline-offset:3px;
+  border-radius:5px 8px 4px 7px;
+}
+.pencil-shell button.pencil-agents-entry:is(:hover,:focus-visible,[aria-current]) {
+  border:0;
+  outline:0;
+  background:transparent;
+  box-shadow:none;
+  transform:none;
+}
+.pencil-shell .pencil-bar summary:focus-visible { outline:0; }
+.pencil-shell small,.pencil-shell time { font-size:12px; font-weight:500; }
+.pencil-shell strong,.pencil-shell td b,.pencil-shell .numeric,.pencil-shell .count {
+  font-size:1.06em;
+  font-weight:700;
 }
 
 @media (max-width: 760px) {
