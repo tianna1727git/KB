@@ -34,7 +34,7 @@ body {
   color: var(--ink);
   font-family: "Payo Moonless", "Payo Source Han Sans CN", "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 600;
   font-synthesis: weight;
 }
 
@@ -192,6 +192,19 @@ a { color: #514b43; }
   filter:url(#payo-pencil-wobble);
 }
 .pencil-shell svg.lucide { stroke-width:2.1; }
+.pencil-shell .pencil-nav button {
+  border:0 !important;
+  outline:0 !important;
+  border-radius:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  transform:none;
+}
+.pencil-shell .pencil-nav button:is(:hover,[aria-current],:focus-visible) {
+  background:transparent !important;
+  box-shadow:none !important;
+  outline:0 !important;
+}
 .pencil-shell button:focus-visible,.pencil-shell a:focus-visible,.pencil-shell .pencil-bar summary:focus-visible {
   outline:1px solid #777168;
   outline-offset:3px;
@@ -206,6 +219,28 @@ a { color: #514b43; }
 }
 .pencil-shell .pencil-bar summary:focus-visible { outline:0; }
 .pencil-shell small,.pencil-shell time { font-size:12px; font-weight:500; }
+.pencil-shell :is(p,span,label,td,th,dd,dt,input,select,textarea,summary,small,time) { font-weight:600; }
+.pencil-shell :is(button,.button,strong,b,code,time,input,select,textarea) { font-weight:700; }
+.pencil-shell .settings-navigation [role="tab"] {
+  outline:0 !important;
+  border:0 !important;
+  background:transparent !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+  font-weight:700;
+}
+.pencil-shell .settings-navigation [role="tab"]:focus-visible { outline:0 !important; }
+.pencil-shell .settings-navigation [role="tab"][data-state="active"] { border:0 !important; color:var(--ink); }
+.pencil-shell .settings-navigation [role="tab"][data-state="active"]::before {
+  content:"";
+  position:absolute;
+  left:-11px;
+  top:8px;
+  width:8px;
+  height:26px;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 28'%3E%3Cpath d='M5 1Q2 7 4 12T3 20Q5 24 2 27' fill='none' stroke='%234a4945' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M7 2Q5 9 6 15T4 25' fill='none' stroke='%234a4945' stroke-opacity='.3' stroke-width='.8'/%3E%3C/svg%3E") center/contain no-repeat;
+  transform:rotate(1deg);
+}
 .pencil-shell strong,.pencil-shell td b,.pencil-shell .numeric,.pencil-shell .count {
   font-size:1.06em;
   font-weight:700;
