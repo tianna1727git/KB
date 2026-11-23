@@ -49,7 +49,7 @@ export async function api(req:Request,env:any){try{
  const path=new URL(req.url).pathname.replace('/api/studio/','').split('/'),action=path[0];
  if(action==='materialCategories')return await materialCategoriesAPI(req,env,{uid,fail,json});
  if(action.startsWith('seoResearch'))return await seoKeywordsAPI(req,env,{uid,get,list,save,create,fail,json});
- if(['insights','insightsSettings','insightsRefresh','insightsRefreshDue','insightsResolveSource'].includes(action))return await insightsAPI(req,env,{get,list,uid,fail,json});
+ if(['insights','insightsSettings','insightsRefresh','insightsRefreshDue','insightsResolveSource','insightsResolveWechatSource','insightsMangyunSettings','insightsArticleContent','insightsSavedResearch','insightsResearchProgress','insightsResearch','insightsBaiduSettings','insightsKeywordDemand'].includes(action)){if(action==='insightsResearch')env=await resolveModelEnv(env,uid);return await insightsAPI(req,env,{get,list,uid,fail,json});}
  if(['libraryUsageUpdate','referenceSettings'].includes(action))return await usageAPI(req,env,{get,list,uid,fail,json});
  if(['librarySubmitStream','librarySubmit','mineruSettings','libraryRawUpload','libraryURL','libraryConvert','libraryConvertPoll','libraryMarkdownSave','libraryAsset','libraryVersions'].includes(action))return await mineruAPI(req,env,{get,list,save,create,fail,json,uid});
  if(action==='knowledgeBatch')return await knowledgeBatchAPI(req,env,{get,list,save,create,fail,json,uid,email});
