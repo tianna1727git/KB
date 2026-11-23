@@ -159,6 +159,31 @@ a { color: #514b43; }
 .article-rendered a { color: #514b43; text-decoration: underline; text-decoration-style: dashed; }
 .article-rendered pre, .article-source { background: #f2f0ea; }
 
+/* Persona cards follow the editable PMI layout and use the same pencil linework. */
+.persona-settings { max-width: 1440px; margin: 0 auto; }
+.persona-settings > .page-heading { margin: 10px 0 22px; }
+.persona-toolbar, .persona-toolbar > div, .persona-footer, .persona-card-actions { display:flex; align-items:center; gap:10px; }
+.persona-toolbar { justify-content:space-between; margin:0 0 16px; }
+.persona-toolbar > span { display:flex; align-items:center; gap:8px; color:var(--muted); }
+.persona-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.persona-card { min-width:0; padding:20px; }
+.persona-card > header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:16px; }
+.persona-heading { display:flex; align-items:center; gap:12px; min-width:0; }
+.persona-heading > div { display:grid; gap:4px; min-width:0; }
+.persona-heading span { color:var(--muted); font-size:12px; }
+.persona-heading input { min-width:0; max-width:240px; font-weight:700; font-size:18px; }
+.persona-robot { flex:none; color:#484640; filter:url(#payo-pencil-wobble); }
+.persona-card .field { display:block; margin-bottom:13px; }
+.persona-card .field > span { display:block; margin-bottom:6px; color:var(--muted); font-size:12px; }
+.persona-card .field > input, .persona-card textarea { width:100%; padding:10px 12px; font-size:13px; line-height:1.65; resize:vertical; }
+.persona-card textarea { min-height:82px; }
+.persona-fields { display:grid; grid-template-columns:1fr 1fr; gap:0 14px; }
+.persona-note { margin:0 0 12px; padding-left:11px; border-left:2px solid #9d8d72; color:#69645a; font-size:13px; line-height:1.65; }
+.persona-footer { justify-content:space-between; padding:18px 0 26px; }
+.persona-footer p { color:var(--muted); font-size:13px; }
+@media(max-width:900px){.persona-list{grid-template-columns:1fr}}
+@media(max-width:600px){.persona-toolbar,.persona-footer{align-items:stretch;flex-direction:column}.persona-toolbar>div{flex-wrap:wrap}.persona-fields{grid-template-columns:1fr}.persona-card{padding:16px}}
+
 /* Sketch the control outlines without changing their existing fills or text colors. */
 .pencil-shell button:not(.text-btn), .pencil-shell a.button {
   position: relative;

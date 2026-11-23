@@ -32,6 +32,7 @@ import {parseUpload} from './parse-upload';
 import libraryFiles from './library-data.json';
 import {splitMarkdown,coverage,rank,canUse,citationCheck} from './knowledge.mjs';
 import {agentInfo,modelJSON,messages} from './agent.mjs';
+import {DEFAULT_PERSONAS} from './persona-defaults.mjs';
 type R=Record<string,any>;
 const id=()=>crypto.randomUUID(),now=()=>new Date().toISOString();
 function fail(message:string,code=400):never{throw Object.assign(new Error(message),{code});}
@@ -87,6 +88,7 @@ export async function api(req:Request,env:any){try{
  const metadata=await get(metadataId,'libraryMetadata');return json({libraryCategory:metadata.libraryCategory,categoryRevision:metadata.revision});
  }
  if(req.method==='GET'){
+ if(action==='personaSettings'){const saved=(await list('personaSettings'))[0];return json({personas:saved?.personas||DEFAULT_PERSONAS,revision:saved?.revision||0});}
  if(action==='taskStatus'||action==='batchStatus'){
  const columns="id,state,revision,updated,json_extract(payload,'$.title') AS title,json_extract(payload,'$.stage') AS stage,json_extract(payload,'$.error') AS error,json_extract(payload,'$.childTaskIds') AS childIds";
  const row=await env.DB.prepare('SELECT '+columns+' FROM studio_records WHERE id=? AND owner=? AND kind="task"').bind(path[1],uid).first();if(!row)fail('任务不存在或无权访问',404);
@@ -122,6 +124,12 @@ export async function api(req:Request,env:any){try{
  if(action==='source'){const d=await get(path[1],'document'),f=await env.BUCKET.get(d.fileKey);if(!f)fail('原文件不存在',404);return new Response(f.body,{headers:{'Content-Type':'text/markdown;charset=utf-8','Content-Disposition':'attachment; filename="source.md"','Cache-Control':'no-store'}});}
  fail('接口不存在',404);}
  if(req.method!=='POST')fail('请求方法无效',405);
+ if(action==='personaSettings'){
+ const b:any=await req.json();if(!Array.isArray(b.personas)||b.personas.length>12||!Number.isInteger(b.revision)||b.revision<0)fail('Persona 设置格式无效');
+ const ids=new Set<string>(),personas=b.personas.map((p:any)=>{if(!p||typeof p.id!=='string'||!p.id||p.id.length>100||ids.has(p.id))fail('Persona 标识无效');ids.add(p.id);const value:any={id:p.id,enabled:p.enabled===true};for(const key of ['name','title','careerStage','goals','challenges','decisionCriteria','communicationStyle','typicalQuestion','notes']){if(typeof p[key]!=='string'||p[key].length>(key==='careerStage'?1600:key==='name'?80:key==='title'?180:key==='typicalQuestion'?500:1200))fail('Persona 字段格式无效');value[key]=p[key].trim();}if(!value.name||!value.title)fail('每个 Persona 都需要名字和角色');return value;});
+ const saved=(await list('personaSettings'))[0];if(saved){if(saved.revision!==b.revision)fail('Persona 设置已更新，请刷新后再保存',409);const next=await save(saved,{personas},'saved');return json({personas:next.personas,revision:next.revision});}
+ if(b.revision!==0)fail('Persona 设置已更新，请刷新后再保存',409);const next=await create('personaSettings',{personas},'saved');return json({personas:next.personas,revision:next.revision});
+ }
  if(action==='libraryUpload'){
  const form=await req.formData(),file=form.get('file'),mode=form.get('mode');if(!(file instanceof File))fail('请选择文件');
  const isMarkdown=mode==='markdown';if(!['markdown','parse'].includes(String(mode)))fail('上传方式无效');if(isMarkdown&&!/\.(md|markdown)$/i.test(file.name)||!isMarkdown&&!/\.(pdf|docx|pptx|xlsx|txt)$/i.test(file.name))fail(isMarkdown?'请选择 Markdown 文件':'支持 PDF、DOCX、PPTX、XLSX、TXT');
@@ -205,8 +213,8 @@ export async function api(req:Request,env:any){try{
  if(action==='revoke'){const k=await get(b.id,'chunk');return json(await save(k,{confirmedAt:null},'pending'));}
  if(action==='createTask'){
  if(b.demoFlow===true||b.demoKnowledgeMode===true)fail('Demo 功能已移除',400);
- const keyword=String(b.keyword||'').trim();if(!keyword||keyword.length>200)fail('请输入不超过200字的主题关键词');const platform=String(b.platform||'官网'),audience=String(b.audience||'准备拓展海外市场的中国跨境电商卖家');if(!CONTENT_PLATFORMS.includes(platform)||audience.length>300||String(b.description||'').length>3000)fail('写作需求格式无效');const writingRules=String(b.writingRules||'').trim();if(writingRules.length>5000)fail('写作规则最多5000字');const requestedSources=Array.isArray(b.sourceIds)?b.sourceIds.slice(0,20):[];const topic=String(b.topic||keyword).trim();if(!topic||topic.length>200)fail('主题最多200字');if(b.insightIds!==undefined&&(!Array.isArray(b.insightIds)||b.insightIds.length>10||new Set(b.insightIds).size!==b.insightIds.length))fail('Insights选题来源无效');const insightContext=[];const selectedDays=insightDays(b.insightDays||15),sourcePolicies=await insightSources();for(const rid of b.insightIds||[]){const article=await get(rid,'insightArticle');if(!sourcePolicies.some((s:R)=>s.id===article.sourceId&&s.enabled))fail('Insights来源已停用，请重新选择');if(!matchInsights('',[article],selectedDays).length)fail('选题来源已超过所选时间范围，请重新选择');insightContext.push(withInsightPolicy(article,sourcePolicies));}
- const t=await create('task',{topic,insightContext,titleSelection:b.titleSelection===true,autoProduce:b.autoProduce===true,platformRulesVersion:SEO_RULES.version,secondaryKeywords:[],writingRules,requestedSources,draftVersion:0,keyword,platform,audience,description:String(b.description||''),title:topic+'写作任务',executionMode:'api',stage:'sources',events:[],queries:[],evidence:[],rules:[],outline:'',markdown:'',missing:[],issues:[],error:'',round:0},'waiting');return json(t);}
+ const keyword=String(b.keyword||'').trim();if(!keyword||keyword.length>200)fail('请输入不超过200字的主题关键词');const platform=String(b.platform||'官网'),audience=String(b.audience||'');if(!CONTENT_PLATFORMS.includes(platform)||audience.length>300||String(b.description||'').length>3000)fail('写作需求格式无效');let persona:any=null;if(b.personaId){const configured=(await list('personaSettings'))[0]?.personas||DEFAULT_PERSONAS;persona=configured.find((p:R)=>p.id===b.personaId&&p.enabled);if(!persona)fail('所选 Persona 已停用或不存在，请重新选择');}const writingRules=String(b.writingRules||'').trim();if(writingRules.length>5000)fail('写作规则最多5000字');const requestedSources=Array.isArray(b.sourceIds)?b.sourceIds.slice(0,20):[];const topic=String(b.topic||keyword).trim();if(!topic||topic.length>200)fail('主题最多200字');if(b.insightIds!==undefined&&(!Array.isArray(b.insightIds)||b.insightIds.length>10||new Set(b.insightIds).size!==b.insightIds.length))fail('Insights选题来源无效');const insightContext=[];const selectedDays=insightDays(b.insightDays||15),sourcePolicies=await insightSources();for(const rid of b.insightIds||[]){const article=await get(rid,'insightArticle');if(!sourcePolicies.some((s:R)=>s.id===article.sourceId&&s.enabled))fail('Insights来源已停用，请重新选择');if(!matchInsights('',[article],selectedDays).length)fail('选题来源已超过所选时间范围，请重新选择');insightContext.push(withInsightPolicy(article,sourcePolicies));}
+ const t=await create('task',{topic,insightContext,titleSelection:b.titleSelection===true,autoProduce:b.autoProduce===true,platformRulesVersion:SEO_RULES.version,secondaryKeywords:[],writingRules,requestedSources,draftVersion:0,keyword,platform,audience:persona?`${persona.name}｜${persona.title}`:audience,persona:persona?{id:persona.id,name:persona.name,title:persona.title,careerStage:persona.careerStage,goals:persona.goals,challenges:persona.challenges,decisionCriteria:persona.decisionCriteria,communicationStyle:persona.communicationStyle,typicalQuestion:persona.typicalQuestion,notes:persona.notes}:null,description:String(b.description||''),title:topic+'写作任务',executionMode:'api',stage:'sources',events:[],queries:[],evidence:[],rules:[],outline:'',markdown:'',missing:[],issues:[],error:'',round:0},'waiting');return json(t);}
  if(action==='selectTitles'){
  const t=await get(b.id,'task');
  if(t.stage==='batch')return json(await taskView(t));
