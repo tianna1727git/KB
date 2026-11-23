@@ -153,6 +153,31 @@ a { color: #514b43; }
 .article-rendered a { color: #514b43; text-decoration: underline; text-decoration-style: dashed; }
 .article-rendered pre, .article-source { background: #f2f0ea; }
 
+/* Sketch the control outlines without changing their existing fills or text colors. */
+.pencil-shell button:not(.text-btn), .pencil-shell a.button {
+  position: relative;
+  overflow: visible;
+}
+.pencil-shell button:not(.text-btn)::after, .pencil-shell a.button::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border: inherit;
+  border-radius: inherit;
+  transform: rotate(-.18deg);
+  opacity: .38;
+  pointer-events: none;
+}
+.pencil-shell input[type="search"],
+.pencil-shell input[aria-label*="搜索"],
+.pencil-shell input[placeholder*="搜索"],
+.pencil-shell .content-keyword input {
+  border-radius: 6px 9px 5px 8px !important;
+  transform: rotate(-.08deg);
+  box-shadow: inset 0 0 0 1px #4a484408, 1px 1px 0 var(--paper-shadow),
+    -.5px -.5px 0 color-mix(in srgb, var(--pencil) 22%, transparent) !important;
+}
+
 @media (max-width: 760px) {
   .sidebar { background: #f1efe9; }
   main { padding-left: 18px; padding-right: 18px; }
