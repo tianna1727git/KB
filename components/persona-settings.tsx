@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useState} from 'react';
-import {Plus,RotateCcw,Save,Trash2,Users} from 'lucide-react';
+import {Plus,RotateCcw,Save,Users} from 'lucide-react';
 import {DEFAULT_PERSONAS} from '../lib/studio/persona-defaults.mjs';
 import {PersonaRobot} from './persona-robot';
 type Persona=typeof DEFAULT_PERSONAS[number];
@@ -15,7 +15,15 @@ export function PersonaSettings(){
  return <section className="persona-settings"><header className="page-heading"><div><h1>Persona</h1><p>为内容研究与写作设定目标读者。每个画像都可以单独编辑、启用或停用。</p></div></header>
   {loading?<p className="panel persona-loading">正在读取 Persona 设置…</p>:<><div className="persona-toolbar"><span><Users size={16}/>{personas.length} 个读者画像</span><div><button type="button" onClick={restore}><RotateCcw size={15}/>恢复初始设置</button><button type="button" onClick={add} disabled={personas.length>=12}><Plus size={15}/>新增</button><button type="button" className="primary" onClick={()=>void save()} disabled={busy}><Save size={15}/>{busy?'保存中…':'保存设置'}</button></div></div>
    {error&&<p className="banner error" role="alert">{error}</p>}{notice&&<p className="banner" role="status">{notice}</p>}
-   <div className="persona-list">{personas.map((p,index)=><article className="panel persona-card" key={p.id}><header><div className="persona-heading"><PersonaRobot index={index}/><div><span>Persona {String(index+1).padStart(2,'0')}</span><input aria-label="Persona 名字" value={p.name} maxLength={80} onChange={e=>update(p.id,'name',e.target.value)}/></div></div><div className="persona-card-actions"><label className="check-label"><input type="checkbox" checked={p.enabled} onChange={e=>update(p.id,'enabled',e.target.checked)}/>启用</label><button type="button" aria-label={'删除 '+p.name} onClick={()=>setPersonas(current=>current.filter(item=>item.id!==p.id))}><Trash2 size={15}/></button></div></header>
+   <div className="persona-list">{personas.map((p,index)=><article className="panel persona-card" key={p.id}><header><div className="persona-heading"><PersonaRobot index={index}/><div><input aria-label="Persona 名字" value={p.name} maxLength={80} onChange={e=>update(p.id,'name',e.target.value)}/></div></div><div className="persona-card-actions">
+      <button className="icon-btn" type="button" aria-label={'启用 '+p.name} aria-pressed={p.enabled}
+        title={p.enabled?'已启用，点击停用':'已停用，点击启用'} onClick={()=>update(p.id,'enabled',!p.enabled)}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4.5Q10 3 19.8 4L20.4 19.8Q12 21 3.7 20Z"/>{p.enabled&&<path d="m6.5 12 4 4.1Q15 9.8 19 7"/>}</svg>
+      </button>
+      <button className="icon-btn" type="button" aria-label={'删除 '+p.name} title={'删除 '+p.name}
+        onClick={()=>setPersonas(current=>current.filter(item=>item.id!==p.id))}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.4 6.7Q10 5.8 20.7 6.4M8.7 6l.6-3.1 5.1.1.6 3M5.5 8.4l1.2 12q4.8.9 10.9-.1l.9-12M10 10l.4 7.4m3.8-7.6-.3 7.7"/></svg>
+      </button></div></header>
     <label className="field"><span>角色</span><input value={p.title} maxLength={180} onChange={e=>update(p.id,'title',e.target.value)} placeholder="角色名称"/></label>
     <label className="field"><span>角色与背景</span><textarea value={p.careerStage||''} maxLength={1600} rows={3} onChange={e=>update(p.id,'careerStage',e.target.value)}/></label>
     <div className="persona-fields"><label className="field"><span>目标与动机</span><textarea value={p.goals} maxLength={1200} rows={3} onChange={e=>update(p.id,'goals',e.target.value)}/></label><label className="field"><span>挑战与痛点</span><textarea value={p.challenges} maxLength={1200} rows={3} onChange={e=>update(p.id,'challenges',e.target.value)}/></label><label className="field"><span>决策与证据标准</span><textarea value={p.decisionCriteria} maxLength={1200} rows={3} onChange={e=>update(p.id,'decisionCriteria',e.target.value)}/></label><label className="field"><span>沟通偏好</span><textarea value={p.communicationStyle} maxLength={1200} rows={3} onChange={e=>update(p.id,'communicationStyle',e.target.value)}/></label></div>
