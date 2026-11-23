@@ -1,4 +1,20 @@
 /* Payo hand-drawn pencil theme: paper surfaces, graphite outlines, restrained accents. */
+@font-face {
+  font-family: "Payo Moonless";
+  src: url("/fonts/moonless-sc-regular.otf") format("opentype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0000-024F, U+2000-206F, U+20A0-20CF, U+2100-214F;
+}
+@font-face {
+  font-family: "Payo Source Han Sans CN";
+  src: url("/fonts/source-han-sans-cn-vf.otf") format("opentype");
+  font-style: normal;
+  font-weight: 250 900;
+  font-display: swap;
+  unicode-range: U+3000-303F, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FF00-FFEF;
+}
 :root {
   --ink: #343331;
   --muted: #77746f;
@@ -16,11 +32,14 @@ body {
   background-image: radial-gradient(#6a655b0c .7px, transparent .7px);
   background-size: 7px 7px;
   color: var(--ink);
-  font-family: "Kaiti SC", "STKaiti", "KaiTi", "Segoe Print", "Comic Sans MS", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: "Payo Moonless", "Payo Source Han Sans CN", "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 14px;
 }
 
 button, input, select, textarea { font-family: inherit; }
+.pencil-desk, .pencil-desk h1, .pencil-desk input, .pencil-desk button[type="submit"] {
+  font-family: "Payo Moonless", "Payo Source Han Sans CN", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
 
 button, .button {
   border: 1.5px solid var(--pencil);
