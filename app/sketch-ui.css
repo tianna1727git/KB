@@ -466,3 +466,18 @@ body:has(.geo-dialog[open]) { overflow:hidden; }
 @media(max-width:600px) {
   .content-mode-switch { margin-bottom:13px; }
 }
+
+/* Persona text stays quiet until a field is being edited. */
+.pencil-shell main .persona-settings .persona-card :is(input:not([type="checkbox"]), textarea) {
+  background:transparent !important;
+  box-shadow:none !important;
+  border:0 !important;
+  padding-inline:2px;
+}
+.pencil-shell main .persona-settings .persona-card :is(input:not([type="checkbox"]), textarea):is(:hover,:focus) {
+  background:transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 5' preserveAspectRatio='none'%3E%3Cpath d='M1 3Q38 1 76 2.5T147 2.1T204 2.7T239 2' fill='none' stroke='%23646159' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E") bottom / 100% 5px no-repeat !important;
+}
+.pencil-shell main .persona-settings button.primary {
+  background:transparent url('/pencil/fill.svg') center / 100% 100% no-repeat !important;
+  color:var(--paper);
+}
