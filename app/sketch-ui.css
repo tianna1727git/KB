@@ -437,24 +437,18 @@ a { color: #514b43; }
 }
 .geo-dialog::backdrop { background:rgb(41 39 35 / 46%); }
 body:has(.geo-dialog[open]) { overflow:hidden; }
-.geo-scene { position:relative; padding:4px 5px; }
+.geo-scene { position:relative; padding:42px 4px 0; }
 .geo-scene p {
-  position:relative; margin:0; padding:37px 30px 30px; text-align:center;
-  background:var(--paper); border:2px solid var(--pencil);
-  border-radius:46% 49% 43% 41% / 47% 51% 44% 42%;
+  margin:0; padding:30px 24px 45px; text-align:center;
   font-size:24px; line-height:1.25;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 340 120' preserveAspectRatio='none'%3E%3Cpath d='M169 3C264 2 337 22 337 54S268 105 151 102C122 101 108 98 101 101S88 113 76 117Q72 118 75 114C84 100 83 97 72 95C27 87 3 74 3 53S52 4 169 3Z' fill='%23fffefa' stroke='%234a4844' stroke-width='1.8' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% 100% no-repeat;
 }
-.geo-scene p::after {
-  content:""; position:absolute; bottom:-9px; left:24%; width:14px; height:14px;
-  background:var(--paper); border:solid var(--pencil); border-width:0 2px 2px 0;
-  transform:skew(-17deg) rotate(41deg);
+.pencil-shell main .geo-scene .geo-close {
+  position:absolute; right:8px; top:0; width:44px; height:44px;
+  color:var(--ink); padding:0;
 }
-.pencil-shell main .geo-scene .geo-close { position:absolute; right:15%; top:5px; z-index:1; }
-.geo-scene .geo-robots { margin:14px 15% 0; width:fit-content; padding:5px 10px; border-radius:50%; background:var(--paper); }
-.geo-robots { display:flex; align-items:flex-end; gap:2px; color:var(--pencil); }
-.geo-robots svg { width:22px; height:22px; stroke-width:1.8; filter:url(#payo-pencil-wobble); }
-.geo-robots svg:nth-child(2) { width:29px; height:29px; }
-.geo-robots svg:nth-child(3) { width:19px; height:19px; }
+.geo-scene .geo-close:focus-visible { outline:1px dotted currentColor; outline-offset:-6px; }
+.geo-scene .geo-friends { display:block; width:42%; height:auto; margin:0 0 0 9%; }
 @media(max-width:600px) {
   .content-mode-switch { margin-bottom:13px; }
 }

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 154 90" fill="#fffdf6" stroke="#383630" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Antenna and saucer-shaped head -->
+  <path d="m23 76 1 7 3 1m6-10 1 8 3 1M22 56q-11 3-13-1t9-7m17 4 9-6"/>
+  <path d="M18 50q-7 9-2 19t18 2q6-7 1-20ZM8 44q9-13 20-15 8 1 14 14-13 7-34 1Zm19-15-1-8"/>
+  <path d="m17 42 2-1m12-3 2 1"/>
+  <!-- Little tin with scalloped collar -->
+  <path d="m41 75-2 10 3 1m12-10 2 9 3-1M38 55q-4 20 1 23t16-1q5-8 3-22Z"/>
+  <ellipse cx="48" cy="54" rx="11" ry="3"/>
+  <path d="m38 60 4 3 4-3 5 3 6-4" fill="none"/>
+  <!-- Round figure with beret -->
+  <path d="m71 70 1 10 4 1m14-11 1 9 4 1"/>
+  <path d="M69 39q-8 2-11 15t3 18q13 5 33 0 7-4 3-18t-13-15Z"/>
+  <path d="M66 38q-3-15 10-16t14 14q-8 7-24 2Z"/>
+  <path d="M63 25q5-10 15-10l2-4 2 4q9 0 13 10-15 2-32 0Z" fill="#383630"/>
+  <path d="m70 30 2 1m11-1 2 1"/>
+  <!-- Tall figure with pointed cap -->
+  <path d="m114 62-2 14 3 1m12-15 2 14 3-1m-3-45q15 10 16 29" fill="none"/>
+  <path d="M115 29q-7 8-11 24t13 13q17 2 17-8-1-13-12-29Z"/>
+  <path d="M113 31q-9-1-10-9l-6-1 9-5q4-6 11-3 9 3 9 15Z"/>
+  <path d="m116 13 6-10 5 13Z" fill="#383630"/><path d="m108 19 2 1m12 10-11 2"/>
+</svg>
