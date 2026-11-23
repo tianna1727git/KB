@@ -1,4 +1,5 @@
 'use client';
+import {WorkspaceLoading} from './workspace-loading';
 import {PencilSave} from './pencil-save';
 import {useState} from 'react';
 import {ArrowLeft,Check,RefreshCw,Sparkles,AlertCircle,BookOpen,ShieldCheck,Download,} from 'lucide-react';
@@ -25,7 +26,7 @@ export function WritingWorkspace({task,busy,modelReady,auto,title,body,onTitle,o
   <nav className="writing-journey" aria-label="文章生产流程">{stages.map((label,i)=><div key={label} className={i<position?'finished':i===position?'current':''} aria-current={i===position?'step':undefined}><span>{i<position?<Check size={14}/>:i+1}</span><b>{label}</b></div>)}</nav>
   <div className="writing-summary"><span>关键词 <b>{task.keyword}</b></span><span>发文平台 <b>官网</b></span><span>输出 <b>排版文稿 / HTML / Markdown</b></span></div>
   {localError&&<p className="banner error" role="alert">{localError}</p>}
-  {choosing?<TitleSelection task={task} onUpdate={onUpdate}/>:batch?<ArticleBatch task={task} autoRun={false} modelReady={modelReady} onOpen={onOpenTask}/>:!ready?<section className="panel writing-generation" aria-label="生成文稿"><div className="writing-generation-title"><span className="writing-orb"><Sparkles size={28}/></span><h2>{blocked?'生成暂未完成':'正在准备你的官网文稿'}</h2><p>正在组织素材、起草并检查。</p></div>
+  {choosing?<TitleSelection task={task} onUpdate={onUpdate}/>:batch?<ArticleBatch task={task} autoRun={false} modelReady={modelReady} onOpen={onOpenTask}/>:!ready?<section className="panel writing-generation" aria-label="生成文稿">{blocked?<div className="writing-generation-title"><h2>生成暂未完成</h2></div>:<WorkspaceLoading compact/>}
    <ol className="writing-phases">{phases.map(([key,label],i)=><li key={key} className={i<phase?'finished':i===phase?'current':''}><span>{i<phase?<Check size={15}/>:i+1}</span><div><b>{label}</b><small>{i<phase?'已完成':i===phase?blocked?'等待处理':task.state==='running'?'正在执行':'等待执行':'待执行'}</small></div>{i===phase&&task.state==='running'&&<RefreshCw size={16} className="spin"/>}</li>)}</ol>
    {blocked&&<div className="writing-blocker" role="alert"><AlertCircle size={19}/><div><h3>{!modelReady?'请先配置文稿生成服务':task.stale?.length?'参考来源已变化':/公开|来源|素材|资料|引用/.test(task.error||'')||task.stage==='sources'?'需要补充或核实写作依据':'生成过程中遇到问题'}</h3><p>{!modelReady?'当前未配置可用的生成服务，暂时无法自动生成。任务和已有内容已保留。':(legacyReferenceBlock?'引用规则已更新，可直接继续生成。':task.error)||task.stale?.join('、')||'当前没有可用于本次写作的有效素材。请补充资料后继续。'}</p><div className="actions">{!modelReady?<button className="primary" onClick={onSettings}>配置生成服务</button>:<><button onClick={onLibrary}>查看资料库</button><button className="primary" disabled={busy} onClick={()=>action(onContinue)}>处理后继续生成</button></>}</div></div></div>}
    {!blocked&&task.state!=='running'&&!auto&&<button className="primary" disabled={busy} onClick={()=>action(onContinue)}><Sparkles size={15}/>继续生成文稿</button>}

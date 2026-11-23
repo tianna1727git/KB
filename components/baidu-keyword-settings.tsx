@@ -1,4 +1,5 @@
 'use client';
+import {WorkspaceLoading} from './workspace-loading';
 import {PencilSave} from './pencil-save';
 import {useEffect,useState} from 'react';
 import {CheckCircle2,KeyRound,} from 'lucide-react';
@@ -10,5 +11,6 @@ export function BaiduKeywordSettings(){
  useEffect(()=>{void load();},[]);
  async function save(e:React.FormEvent){e.preventDefault();if(!config||busy)return;setBusy(true);setError('');setNotice('');try{const r=await fetch('/api/studio/insightsBaiduSettings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({revision:config.revision,apiKeys})}),d=await r.json();if(!r.ok)throw Error(d.error||'保存失败');setConfig(d);setApiKeys({});setNotice('三个百度接口的APIKey已分别加密保存，研究策划Agent会按需使用。');}catch(err:any){setError(err.message);}finally{setBusy(false);}}
  const allConfigured=slots.every(([slot])=>config?.configured?.[slot]);
+ if(!config&&!error)return <WorkspaceLoading compact/>;
  return <section className="panel insights-settings baidu-keyword-settings"><div className="panel-heading"><div><h2>百度关键词数据配置</h2><p>三个接口分别使用各自的APIKey，请分别填写并保存。</p></div>{allConfigured&&<span className="insights-step-status"><CheckCircle2 size={16}/>3项已配置</span>}</div><form onSubmit={save}><div className="baidu-api-key-fields">{slots.map(([slot,label])=><label className="field" key={slot}><span>{label} APIKey {config?.configured?.[slot]&&<small>已配置</small>}</span><input required={!config?.configured?.[slot]} type="password" autoComplete="new-password" maxLength={512} value={apiKeys[slot]||''} onChange={e=>setApiKeys(prev=>({...prev,[slot]:e.target.value}))} placeholder={config?.configured?.[slot]?'已配置；留空保留原密钥':'粘贴此接口的APIKey'}/></label>)}<button className="primary" type="submit" disabled={!config||busy||!config.storageReady}><PencilSave/>{busy?'保存中…':'保存API配置'}</button></div>{!config?.storageReady&&<p className="banner error">安全存储未配置，暂不能保存APIKey。</p>}{error&&<p className="banner error" role="alert">{error}</p>}{notice&&<p className="banner" role="status"><KeyRound size={15}/>{notice}</p>}<div className="baidu-api-endpoints" aria-label="研究策划Agent自动使用的接口">{slots.map(([endpoint,purpose],i)=><div className="baidu-api-endpoint" key={endpoint}><span>0{i+1} · {purpose}</span><code>openapi.chinaz.net/v1/1001/{endpoint}</code><small>{config?.configured?.[endpoint]?'APIKey已配置':'APIKey待配置'}</small></div>)}</div><p className="subtle">运行研究策划Agent时自动查询。百度长尾词挖掘与百度流量词各取第一页；百度PC前50名查询种子词及最多3个相关词。接口均未提供月均搜索量，报告不会换算或标注月均搜索量。APIKey分别在服务端加密保存。</p></form></section>;
 }

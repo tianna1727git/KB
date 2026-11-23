@@ -564,3 +564,20 @@ body:has(.geo-dialog[open]) { overflow:hidden; }
 @media (prefers-reduced-motion: reduce) {
   .brewing-band img { animation: none; }
 }
+
+.workspace-brewing .brewing-title { position: relative; width: min(21rem, 100%); }
+.brewing-title svg { display: block; width: 100%; height: auto; }
+.brewing-transcript {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .brewing-title path {
+    stroke-dasharray: 1 1; animation: brewing-write .32s ease-out both;
+  }
+}
+@keyframes brewing-write { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.workspace-brewing.brewing-compact { min-height: 0; padding: 1rem; width: 100%; }
+.brewing-compact .brewing-band { width: min(9rem, 80%); margin-bottom: .5rem; }
+.brewing-compact .brewing-title { width: min(16rem, 100%); }
+.brewing-compact p { margin-top: .3rem; }

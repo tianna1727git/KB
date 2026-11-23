@@ -1,4 +1,5 @@
 'use client';
+import {WorkspaceLoading} from './workspace-loading';
 import {PencilSave} from './pencil-save';
 import {useEffect,useState} from 'react';
 import {Plus,RotateCcw,Users} from 'lucide-react';
@@ -14,7 +15,7 @@ export function PersonaSettings(){
  async function save(){if(busy)return;setBusy(true);setError('');setNotice('');try{const r=await fetch('/api/studio/personaSettings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({revision,personas})}),d=await r.json();if(!r.ok)throw Error(d.error||'保存失败');setPersonas(d.personas);setRevision(d.revision);setNotice('Persona设置已保存。');}catch(e:any){setError(e.message);}finally{setBusy(false);}}
  function restore(){setPersonas(DEFAULT_PERSONAS.map(p=>({...p})));setNotice('已恢复初始设置；点击保存后生效。');setError('');}
  return <section className="persona-settings"><header className="page-heading"><div><h1>Persona</h1><p>为内容研究与写作设定目标读者。每个画像都可以单独编辑、启用或停用。</p></div></header>
-  {loading?<p className="panel persona-loading">正在读取Persona设置…</p>:<><div className="persona-toolbar"><span><Users size={16}/>{personas.length}个读者画像</span><div><button type="button" onClick={restore}><RotateCcw size={15}/>恢复初始设置</button><button type="button" onClick={add} disabled={personas.length>=12}><Plus size={15}/>新增</button><button type="button" className="primary" onClick={()=>void save()} disabled={busy}><PencilSave/>{busy?'保存中…':'保存设置'}</button></div></div>
+  {loading?<WorkspaceLoading compact/>:<><div className="persona-toolbar"><span><Users size={16}/>{personas.length}个读者画像</span><div><button type="button" onClick={restore}><RotateCcw size={15}/>恢复初始设置</button><button type="button" onClick={add} disabled={personas.length>=12}><Plus size={15}/>新增</button><button type="button" className="primary" onClick={()=>void save()} disabled={busy}><PencilSave/>{busy?'保存中…':'保存设置'}</button></div></div>
    {error&&<p className="banner error" role="alert">{error}</p>}{notice&&<p className="banner" role="status">{notice}</p>}
    <div className="persona-list">{personas.map((p,index)=><article className="panel persona-card" key={p.id}><header><div className="persona-heading"><PersonaRobot index={index}/><div><input aria-label="Persona名字" value={p.name} maxLength={80} onChange={e=>update(p.id,'name',e.target.value)}/></div></div><div className="persona-card-actions">
       <button className="icon-btn" type="button" aria-label={'启用 '+p.name} aria-pressed={p.enabled}

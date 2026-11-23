@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 'use client';
+import {WorkspaceLoading} from './workspace-loading';
 import {useEffect,useRef,useState} from 'react';
 import policySource from '../lib/studio/organization-policy.mjs?raw';
 import runtimeSource from '../lib/studio/api-ingestion.ts?raw';
@@ -39,7 +40,7 @@ export function KnowledgeAgentDialog({onClose}:{onClose:()=>void}) {
    <li><b>写入知识库。</b>逐条核对证据与公开引用权限，确认后进入关键词检索；待复核条目留在审核队列。</li>
   </ol>
   <h3>输出</h3><p>可按关键词检索的切片、对应原文位置与适用条件，以及待复核原因。</p>
-  <details><summary>编辑执行规则代码</summary><label>分类与复核规则（JSON）<textarea spellCheck={false} value={code} disabled={revision===null||busy} onChange={e=>setCode(e.target.value)}/></label><button className="primary" disabled={busy||revision===null} onClick={save}>保存规则</button></details>
+  <details><summary>编辑执行规则代码</summary>{revision===null&&!message?<WorkspaceLoading compact/>:<label>分类与复核规则（JSON）<textarea spellCheck={false} value={code} disabled={revision===null||busy} onChange={e=>setCode(e.target.value)}/></label>}<button className="primary" disabled={busy||revision===null} onClick={save}>保存规则</button></details>
   <p role="status">{message}</p>
   <details><summary>查看实现代码</summary>{[['MinerU解析',parserSource],['切片与定位',policySource],['复核与入库',runtimeSource]].map(([name,source])=><details key={name}><summary>{name}</summary><pre tabIndex={0}>{source}</pre></details>)}</details>
  </dialog>;
