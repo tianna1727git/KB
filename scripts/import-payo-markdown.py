@@ -10,6 +10,12 @@ SCOPES = {'可对外分享':'写作素材','可对外定向分享':'写作素材
 def norm(name):
     return re.sub(r'[\W_]+','',unicodedata.normalize('NFKC',name).casefold())
 
+def site_category(category, available):
+    if category in available:
+        return category
+    aliases={'Product Guide':'ProductGuides','Product Brochure':'ProductBrochure','Products & Solutions':'ProductsSolutions'}
+    return aliases.get(category) if aliases.get(category) in available else None
+
 def member_path(member):
     if member.flag_bits & 0x800:
         return Path(member.filename)
@@ -90,8 +96,15 @@ class Stage:
 
 def organize(stage,file_id):
     j=stage.api('ingestionStart',{'id':file_id})
-    while j['state']=='waiting':
-        j=stage.api('ingestionRun',{'id':j['id'],'revision':j['revision']})
+    if j['state'] in ('running','committing'):
+        j=stage.api('ingestionJob?id='+urllib.parse.quote(j['id']))
+    retried=False
+    while True:
+        retry=(not retried and j['state']=='failed' and '1–12条原文证据' in (j.get('error') or ''))
+        if j['state']!='waiting' and not retry:
+            break
+        retried=retried or retry
+        j=stage.api('ingestionRun',{'id':j['id'],'revision':j['revision'],'retry':retry})
     if j['state']!='succeeded':
         return '整理任务'+j['state']+' '+(j.get('error') or ''),0
     did=j.get('documentId')
@@ -141,11 +154,8 @@ def main():
                     elif hits[0].file_size>MAX:status='正文超过20MB'
                     elif args.preview:status='匹配成功'
                     else:
-                        category=r.get('category')
-                        if category not in categories:
-                            print(name,'资料分类：', ' / '.join(sorted(categories)))
-                            category=input('输入匹配分类（回车跳过）：').strip()
-                        if category not in categories:raise ValueError('分类待确认')
+                        category=site_category(r.get('category'),categories)
+                        if not category:raise ValueError('分类待确认')
                         body=archive.read(hits[0]);text=body.decode('utf-8-sig')
                         if not re.sub(r'!\[[^\]]*\]\([^\n]*?\)|^\s*#.*$','',text,flags=re.M).strip():raise ValueError('只有图片或标题，需原件解析')
                         f=stage.upload(member_path(hits[0]).name,body,category);fid=f['id']
