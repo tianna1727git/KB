@@ -491,3 +491,8 @@ body:has(.geo-dialog[open]) { overflow:hidden; }
   stroke-width:1.65; stroke-linecap:round; stroke-linejoin:round;
   filter:url(#payo-pencil-wobble);
 }
+
+.agent-spec .agent-code pre {
+  max-height:22rem; overflow:auto; white-space:pre-wrap;
+  overflow-wrap:anywhere; font:13px/1.6 ui-monospace, monospace;
+}
