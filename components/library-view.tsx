@@ -53,7 +53,7 @@ export function LibraryView({onOpenDocument,onChanged,onOrganize,onSettings}:{on
  case 'name':return <LibraryNameTooltip name={f.name}><button className="library-file" aria-label={f.name} disabled={busy} onClick={()=>open(f)}><FileText size={18}/><b>{f.name}</b></button></LibraryNameTooltip>;
  case 'format':return SOURCE_FORMAT_LABELS[sourceFormatGroup(f)];
  case 'category':return categoryLabel(f.libraryCategory);
- case 'usage':return <span className={'usage-badge '+(f.usageScope||'writing')} title={f.usageScope==='reference'?'公开可查，可列入文章参考资料':'内部素材，需查找公开依据，不列入文章参考资料'}>{usageLabel(f.usageScope)}</span>;
+ case 'usage':return <span className={'usage-badge '+(f.usageScope||'writing')} title={usageLabel(f.usageScope)}>{usageLabel(f.usageScope)}</span>;
  case 'uploaded':return formatFileTime(fileTimes(f).uploadedAt);
  case 'updated':return formatFileTime(fileTimes(f).contentUpdatedAt);
  case 'parsing':return <><LibraryStatusBadge state={state(f)}/>{f.conversionError&&<p className="library-status-error" title={f.conversionError}>{f.conversionError}</p>}</>;

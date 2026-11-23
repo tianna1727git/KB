@@ -1,11 +1,12 @@
 """Import ProductMarketingChina Markdown using Payo Stage's authenticated APIs."""
+import hashlib
 import argparse, collections, csv, fcntl, getpass, http.cookiejar, json, os, sys, time
 import re, unicodedata, urllib.error, urllib.parse, urllib.request, uuid, zipfile
 from pathlib import Path
 
 SITE = 'https://stage.tianna.net.cn'
 MAX = 20 * 1024 * 1024
-SCOPES = {'可对外分享':'写作素材','可对外定向分享':'写作素材','仅限内部':'','仅可演示 / 不可分享':''}
+SCOPES = {'可对外分享':'public-share','可对外定向分享':'targeted-share','仅限内部':'internal','仅可演示 / 不可分享':'demo-only'}
 
 def norm(name):
     return re.sub(r'[\W_]+','',unicodedata.normalize('NFKC',name).casefold())
@@ -79,20 +80,45 @@ class Stage:
         state=self.api('state')
         if not any('Payoneer' in a.get('role','') for a in state.get('agents',[])):
             raise ValueError('当前会话未识别为Payo工作区，已停止。')
-    def upload(self,name,body,category):
+    def upload(self,name,body,category,scope):
         boundary=uuid.uuid4().hex
         parts=[]
-        for k,v in {'libraryCategory':category,'usageScope':'writing','consent':'false'}.items():
+        for k,v in {'libraryCategory':category,'usageScope':scope,'consent':'false'}.items():
             parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode())
         safe=re.sub(r'[\x00-\x1f\x7f"\\/]','_',name)
         parts.extend([f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{safe}"\r\nContent-Type: text/markdown\r\n\r\n'.encode(),body,f'\r\n--{boundary}--\r\n'.encode()])
         result=json.loads(self.send('/api/studio/librarySubmit',b''.join(parts),'multipart/form-data; boundary='+boundary))
         f=self.api('library/'+result['file']['id'])
-        if f.get('usageScope')!='writing' or f.get('libraryCategory')!=category or f.get('name')!=safe:
+        if f.get('usageScope')!=scope or f.get('libraryCategory')!=category or f.get('name')!=safe:
             raise ValueError('已有同内容记录，名称、分类或权限不同，请核对')
         if f.get('conversionState')=='failed' or not f.get('markdown','').strip():
             raise ValueError('资料已提交但未获得可整理正文，请查看资料列表')
         return f
+
+def sync_scopes(stage, rows, archive, matches):
+    targets = {}
+    for index, row in enumerate(rows):
+        hits = matches[index]
+        if len(hits) == 1:
+            member = hits[0]
+            key = (member_path(member).name, hashlib.sha256(archive.read(member)).hexdigest())
+            targets[key] = SCOPES[row['原始分享权限']]
+    changed = current = unmatched = 0
+    for file in stage.api('library')['files']:
+        hashes = (file.get('originalHash'), file.get('sha256'), file.get('hash'))
+        scope = next((targets[(file['name'], h)] for h in hashes if (file['name'], h) in targets), None)
+        if scope is None:
+            unmatched += 1
+            continue
+        if file.get('usageScope') == scope:
+            current += 1
+            continue
+        result = stage.api('libraryUsageUpdate', {'id': file['id'], 'usageScope': scope,
+                           'usageRevision': file.get('usageRevision', 0)})
+        if result.get('usageScope') != scope:
+            raise ValueError('保存后权限不匹配：' + file['name'])
+        changed += 1
+    print(f'使用范围已更新{changed}份，已一致{current}份，未匹配的现有记录{unmatched}份。')
 
 def organize(stage,file_id):
     j=stage.api('ingestionStart',{'id':file_id})
@@ -143,6 +169,7 @@ def detach(logpath):
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('zip',nargs='?',help='原始Markdown ZIP路径')
+    parser.add_argument('--sync-scopes',action='store_true',help='只按清单同步已有资料的使用范围')
     parser.add_argument('--background',action='store_true',help='登录后在后台继续处理')
     parser.add_argument('--preview',action='store_true',help='只核对文件匹配')
     parser.add_argument('manifest',help='SharePoint Markdown清单')
@@ -163,6 +190,9 @@ def main():
         categories=set()
         if not args.preview:
             stage.login()
+            if args.sync_scopes:
+                sync_scopes(stage,rows,archive,matches)
+                return
             categories={n['value'] for n in stage.api('materialCategories')['nodes']}
         output=path.with_name(path.stem+('-预检' if args.preview else '-入库结果')+'.csv')
         if args.background and not args.preview:
@@ -176,8 +206,7 @@ def main():
             for n,r in enumerate(rows):
                 name=r['原文件名称'];scope=SCOPES[r['原始分享权限']];hits=matches[n];fid='';count=0
                 try:
-                    if not scope: status='留空，现有接口会自动赋权，暂缓导入'
-                    elif len(hits)!=1:status='需核对正文匹配'
+                    if len(hits)!=1:status='需核对正文匹配'
                     elif hits[0].file_size>MAX:status='正文超过20MB'
                     elif args.preview:status='匹配成功'
                     else:
@@ -185,13 +214,13 @@ def main():
                         if not category:raise ValueError('分类待确认')
                         body=archive.read(hits[0]);text=body.decode('utf-8-sig')
                         if not re.sub(r'!\[[^\]]*\]\([^\n]*?\)|^\s*#.*$','',text,flags=re.M).strip():raise ValueError('只有图片或标题，需原件解析')
-                        f=stage.upload(member_path(hits[0]).name,body,category);fid=f['id']
+                        f=stage.upload(member_path(hits[0]).name,body,category,scope);fid=f['id']
                         status,count=organize(stage,fid)
                 except urllib.error.HTTPError as e:
                     if e.code in (401,403):raise
                     status=f'HTTP {e.code} '+e.read(500).decode(errors='replace')
                 except (ValueError,KeyError,OSError,zipfile.BadZipFile) as e:status=str(e)
-                writer.writerow([name,r['原始分享权限'],scope,str(member_path(hits[0])) if len(hits)==1 else '',status,fid,count])
+                writer.writerow([name,r['原始分享权限'],r['原始分享权限'].replace(' / ','／'),str(member_path(hits[0])) if len(hits)==1 else '',status,fid,count])
                 log.flush()
                 if not args.preview:print(n+1,name,status,flush=True)
         print('逐份结果保存于',output)

@@ -31,3 +31,15 @@ test('verified semantic citations are bound to the claim, chunk, URL and permiss
  assert.equal(chunkUsage({...chunk,body:'新主张'},document).canCite,false);
  assert.equal(chunkUsage(chunk,{...document,usageRevision:4}).canCite,false);
 });
+
+test('SharePoint scopes propagate to chunks and limit writing without granting citation',async()=>{
+ const {USAGE_SCOPES}=await import('../lib/studio/usage-scope.mjs');
+ const {canUse}=await import('../lib/studio/knowledge.mjs');
+ for(const {value,label} of USAGE_SCOPES){
+  const docs=withSourceUsage([{id:'d',libraryId:'s',state:'ready',revision:1}], [{id:'s'}], [{sourceId:'s',usageScope:value,revision:2}]);
+  const [chunk]=inheritUsage([{id:'c',docId:'d',docRevision:1,state:'approved'}],docs);
+  assert.equal(chunk.usageLabel,label);
+  assert.equal(chunk.canCite,false);
+  assert.equal(canUse(chunk,docs),['public-share','targeted-share'].includes(value));
+ }
+});
