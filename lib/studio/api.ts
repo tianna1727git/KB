@@ -26,6 +26,7 @@ import {modelSettingsAPI,resolveModelEnv} from './model-settings';
 import {knowledgePacketAPI} from './knowledge-packet.mjs';
 import {handoffAPI} from './handoff.mjs';
 import {sourceDiagnostics} from './source-diagnostics.mjs';
+import {rulesAPI} from './ingestion-rules.mjs';
 import {ingestionAPI} from './ingestion-api';
 import {classifyKnowledge,relatedKnowledge,topicQueries} from './knowledge-model.mjs';
 import {parseUpload} from './parse-upload';
@@ -62,6 +63,7 @@ export async function api(req:Request,env:any){try{
  if(action==='modelSettings')return await modelSettingsAPI(req,env,uid,json);
  if(action==='offlineImport')fail('请使用当前步骤的人工交接任务包导入结果',409);
 
+ if(action==='ingestionRules')return await rulesAPI(req,env,{uid,fail,json});
  if(action.startsWith('ingestion'))return await ingestionAPI(req,env,{get,save,create,list,uid,fail,json,categoryMetadata});
  async function docs(){return withSourceUsage(await list('document'),await list('library'),await list('libraryUsage'));}
  async function currentChunks(){return inheritUsage(await list('chunk'),await docs());}
@@ -207,9 +209,39 @@ export async function api(req:Request,env:any){try{
  if(action==='search'){const q=String(b.query||'').trim(),offset=Number(b.offset||0),pageSize=Number(b.pageSize||50);if(!q||q.length>500||!Number.isInteger(offset)||offset<0||!Number.isInteger(pageSize)||pageSize<1||pageSize>100)fail('请输入有效检索问题和分页参数');const retrieval=retrieveKnowledge(q,await usable(),await docs());return json({results:retrieval.items.slice(offset,offset+pageSize),total:retrieval.total,nextOffset:offset+pageSize<retrieval.total?offset+pageSize:null,mode:'全库关键词/别名、实体与关联上下文检索',directCount:retrieval.directCount,contextCount:retrieval.contextCount});}
  if(action==='documentStatus'){const d=await get(b.id,'document');if(d.revision!==b.revision)fail('资料已更新，请刷新',409);const saved=await save(d,{disabled:!d.disabled});for(const k of (await list('chunk')).filter((k:R)=>k.docId===d.id))await save(k,{docRevision:saved.revision});return json(saved);}
  if(action==='chunkEdit'){const k=await get(b.id,'chunk');if(k.revision!==b.revision)fail('切片已更新，请刷新',409);if(k.state==='approved')fail('请先撤回确认，再修改切片');if(typeof b.title!=='string'||!b.title.trim()||b.title.length>200||typeof b.body!=='string'||!b.body.trim()||b.body.length>30000)fail('标题或正文无效');return json(await save(k,{title:b.title.trim(),body:b.body,edited:b.body!==k.originalBody,risks:[...k.risks.filter((x:string)=>x!=='人工修改内容，需再次对照原文'),...(b.body!==k.originalBody?['人工修改内容，需再次对照原文']:[])]},'pending'));}
- if(action==='confirm'){
+ if(action==='verifyChunkCitation'){
+  const chunk=await get(b.id,'chunk'),document=(await docs()).find((d:R)=>d.id===chunk.docId);
+  const usage=sourceUsage(document);
+  if(!chunk.semantic||!usage.canCite||!document||document.disabled||document.supersededBy||b.reviewed!==true)fail('请核对当前参考引用资料的公开原文。');
+  if(chunk.revision!==b.revision||usage.referenceURL!==b.url||document.usageRevision!==b.usageRevision)fail('切片或来源已变化，请刷新后核对。',409);
+  return json(await save(chunk,{publicVerification:{chunkId:chunk.id,url:usage.referenceURL,title:chunk.title,body:chunk.body,usageRevision:document.usageRevision,reviewer:uid,verifiedAt:now()}}));
+ }
+ if(action==='confirm'||action==='completeKnowledgeReview'){
+ const reviewedDocs=new Set<string>();
+ const resume=action==='completeKnowledgeReview'?await get(b.id,'document'):null;
+ if(resume&&(!resume.organizationContext?.ruleVersion||resume.state!=='review'))fail('当前资料无需完成入库',409);
+ if(!resume){
  if(!Array.isArray(b.ids)||!b.ids.length||b.ids.length>200)fail('请选择1–200条切片');const selected=await Promise.all(b.ids.map((x:string)=>get(x,'chunk')));if(selected.some(k=>k.state!=='pending'))fail('仅可确认待确认切片');if(b.riskConfirmed!==true&&selected.some(k=>k.risks.length))fail('重点切片需要逐条对照确认');if(b.riskConfirmed&&selected.length!==1)fail('重点内容请逐条确认');if(selected.some(k=>!k.body.replace(/^#{1,6}[^\n]*(?:\n|$)/gm,'').trim()))fail('仅标题的切片不可入库，请补充正文');
- for(const k of selected)await save(k,{confirmedAt:now(),confirmedBy:uid},'approved');const docIds=[...new Set(selected.map(k=>k.docId))];for(const did of docIds){const d=await get(did),all=(await list('chunk')).filter((k:R)=>k.docId===did&&k.state!=='excluded');if(all.every((k:R)=>k.state==='approved')){const next=await save(d,{events:d.events.map((v:R)=>({...v,state:'complete'}))},'ready');for(const k of all)await save(k,{docRevision:next.revision});if(d.previousId){const previous=await get(d.previousId,'document');await save(previous,{supersededBy:d.id});}}}return json({ok:true});}
+ for(const k of selected){await save(k,{confirmedAt:now(),confirmedBy:uid},'approved');reviewedDocs.add(k.docId);}}
+ const docIds=resume?[resume.id]:[...reviewedDocs];for(const did of docIds){const d=await get(did),all=(await list('chunk')).filter((k:R)=>k.docId===did&&k.state!=='excluded');if(resume&&(!all.length||all.some((k:R)=>k.state!=='approved')))fail('还有待确认切片',409);if(all.length&&all.every((k:R)=>k.state==='approved')){
+ if(d.organizationContext?.ruleVersion){
+  for(const k of all){
+   const query=k.keywords?.find((value:string)=>value.trim())||k.title;
+   if(!retrieveKnowledge(query,[k]).directCount||!k.evidence?.length||!k.evidence.every((e:R)=>d.markdown.slice(e.start,e.end)===e.quote))
+    fail('切片「'+k.title+'」未通过关键词检索或原文定位校验。',409);
+  }
+  const release=crypto.randomUUID(),time=now();
+  const payload={...d,release,events:d.events.map((v:R)=>({...v,state:'complete'}))};
+  const activated="EXISTS(SELECT 1 FROM studio_records WHERE id=? AND owner=? AND json_extract(payload,'$.release')=?)";
+  const statements=[
+   env.DB.prepare("UPDATE studio_records SET payload=?,state='ready',revision=revision+1,updated=? WHERE id=? AND owner=? AND revision=? AND NOT EXISTS(SELECT 1 FROM studio_records k WHERE k.owner=? AND k.kind='chunk' AND json_extract(k.payload,'$.docId')=? AND k.state NOT IN ('approved','excluded'))").bind(JSON.stringify(payload),time,d.id,uid,d.revision,uid,d.id),
+   env.DB.prepare("UPDATE studio_records SET payload=json_set(payload,'$.docRevision',?),revision=revision+1,updated=? WHERE owner=? AND kind='chunk' AND json_extract(payload,'$.docId')=? AND state='approved' AND "+activated).bind(d.revision+1,time,uid,d.id,d.id,uid,release)
+  ];
+  if(d.previousId)statements.push(env.DB.prepare("UPDATE studio_records SET payload=json_set(payload,'$.supersededBy',?),revision=revision+1,updated=? WHERE id=? AND owner=? AND kind='document' AND "+activated).bind(d.id,time,d.previousId,uid,d.id,uid,release));
+  await env.DB.batch(statements);
+  continue;
+ }
+ const next=await save(d,{events:d.events.map((v:R)=>({...v,state:'complete'}))},'ready');for(const k of all)await save(k,{docRevision:next.revision});if(d.previousId){const previous=await get(d.previousId,'document');await save(previous,{supersededBy:d.id});}}}return json({ok:true});}
  if(action==='revoke'){const k=await get(b.id,'chunk');return json(await save(k,{confirmedAt:null},'pending'));}
  if(action==='createTask'){
  if(b.demoFlow===true||b.demoKnowledgeMode===true)fail('Demo 功能已移除',400);

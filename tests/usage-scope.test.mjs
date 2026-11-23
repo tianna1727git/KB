@@ -20,3 +20,14 @@ test('unreadable, fabricated and disallowed alternative references do not become
  assert.equal((await validatePublicReferences(materials,[proposal],{allowAlternativePublicSources:true},{fetcher:async()=>new Response('',{status:403})})).evidence.length,0);
 });
 test('private redirects are rejected and no cookies or authorization are sent',async()=>{let calls=0;await assert.rejects(()=>readPublicPage(proposal.url,async(url,options)=>{calls++;assert.equal(options.headers.Authorization,undefined);assert.equal(options.headers.Cookie,undefined);return new Response('',{status:302,headers:{location:'https://127.0.0.1'}});}));assert.equal(calls,1);});
+
+test('verified semantic citations are bound to the claim, chunk, URL and permission revision',async()=>{
+ const {chunkUsage}=await import('../lib/studio/usage-scope.mjs');
+ const document={usageScope:'reference',referenceURL:'https://www.payoneer.com/fees',usageRevision:3};
+ const chunk={id:'k',semantic:true,title:'费用',body:'按适用市场核算'};
+ assert.equal(chunkUsage(chunk,document).canCite,false);
+ chunk.publicVerification={chunkId:'k',title:chunk.title,body:chunk.body,url:document.referenceURL,usageRevision:3};
+ assert.equal(chunkUsage(chunk,document).canCite,true);
+ assert.equal(chunkUsage({...chunk,body:'新主张'},document).canCite,false);
+ assert.equal(chunkUsage(chunk,{...document,usageRevision:4}).canCite,false);
+});

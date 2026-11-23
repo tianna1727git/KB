@@ -127,3 +127,15 @@
 
 .knowledge-filters .material-cascader-field{min-width:200px;max-width:460px}
 .profile>div{min-width:0}.profile b,.profile small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+dialog.knowledge-agent-dialog {
+ margin: auto; width: min(44rem, 92vw); max-height: 84dvh;
+ overflow: auto; padding: 1.5rem; color: inherit; background: #fffdf8;
+}
+.knowledge-agent-dialog::backdrop { background: rgb(45 42 37 / .42); }
+.knowledge-agent-dialog header { display: flex; align-items: center; justify-content: space-between; }
+.knowledge-agent-dialog li { margin-block: .5rem; }
+.knowledge-agent-dialog summary { cursor: pointer; padding-block: .45rem; }
+.knowledge-agent-dialog textarea, .knowledge-agent-dialog pre { display: block; width: 100%; box-sizing: border-box; font: .9rem/1.5 monospace; }
+.knowledge-agent-dialog textarea { min-height: 16rem; }
+.knowledge-agent-dialog pre { overflow: auto; max-height: 24rem; }
