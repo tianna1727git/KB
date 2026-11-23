@@ -74,16 +74,16 @@
   src: url('/pencil/kurewa-latin.ttf') format('truetype');
   font-display: swap;
 }
-.pencil-shell { --rail: 83px; --bar: 85px; background: #fbfaf6; color: #36372f; }
+.pencil-shell { --rail: 83px; --bar: 56px; background: #fbfaf6; color: #36372f; }
 .pencil-shell .main-shell { margin-left: var(--rail); width: calc(100% - var(--rail)); padding-top: var(--bar); }
-.pencil-bar { position: fixed; z-index: 12; inset: 0 0 auto; height: var(--bar); background: #fbfaf6; border-bottom: 1px solid #c4c1b6; display: flex; justify-content: flex-end; align-items: center; padding: 0 3vw; }
+.pencil-bar { position: fixed; z-index: 12; inset: 0 0 auto; height: var(--bar); background: #fbfaf6; border-bottom:0; display: flex; justify-content: flex-end; align-items: center; padding: 0 3vw; }
 .pencil-bar details { position: relative; }
 .pencil-bar summary { cursor: pointer; list-style: none; }
 .pencil-bar summary::-webkit-details-marker { display: none; }
 .pencil-bar summary img { display: block; width: 43px; height: 43px; padding: 0; border: 0; border-radius: 0; filter: url(#payo-pencil-wobble); }
 .pencil-bar details div { position: absolute; right: 0; background: #fbfaf6; border: 1px solid #aaa69d; min-width: 165px; padding: 6px; }
 .pencil-bar details :is(button,a) { display:block; text-align:left; padding:8px; color:inherit; border:0; background:none; text-decoration:none; }
-.pencil-nav { position:fixed; inset:var(--bar) auto 0 0; width:var(--rail); display:flex; flex-direction:column; align-items:center; gap:15px; padding-top:min(9vh,84px); overflow:auto; background:#f6f4ed; border-right:1px solid #cecabe; }
+.pencil-nav { position:fixed; inset:var(--bar) auto 0 0; width:var(--rail); display:flex; flex-direction:column; align-items:center; gap:15px; padding-top:min(9vh,84px); overflow:auto; background:#f6f4ed; border-right:0; }
 .pencil-nav button { flex:none; position:relative; background:transparent; border:0; padding:6px; width:47px; height:46px; border-radius:5px; }
 .pencil-nav button:is(:hover,[aria-current]) { background:transparent; box-shadow:none; }
 .pencil-nav button:is([aria-current],:focus-visible)::before { content:''; position:absolute; left:-4px; top:5px; width:10px; height:36px; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 36'%3E%3Cpath d='M6 1Q3 8 5 13T4 25Q6 31 3 35' fill='none' stroke='%234a4945' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M8 3Q6 11 7 19T5 33' fill='none' stroke='%234a4945' stroke-opacity='.32' stroke-width='.8'/%3E%3C/svg%3E") center/contain no-repeat; transform:rotate(1deg); }
@@ -101,7 +101,7 @@
 .pencil-desk button[type="submit"] { width:172px; color:white; opacity:1; background: url('/pencil/fill.svg') center / 100% 100% no-repeat; letter-spacing:.08em; }
 .pencil-desk .desk-insights { background:none; color:#47473e; border:0; padding:8px 0; text-decoration:underline; }
 @media(max-width:700px) {
-  .pencil-shell { --rail:54px; --bar:56px; }
+  .pencil-shell { --rail:54px; --bar:50px; }
   .pencil-shell[data-view="content"] main { padding:40px 16px; }
   .pencil-nav { gap:8px; padding-top:22px; }
   .pencil-desk form { flex-direction:column; }

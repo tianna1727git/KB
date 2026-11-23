@@ -100,6 +100,17 @@ input[type="checkbox"], input[type="radio"] { accent-color: #625d55; }
 .main-shell { background: transparent; }
 .topbar { background: #fffefa; color: #77736c; border-color: #d3cfc7; }
 .pencil-bar { gap: 10px; }
+.pencil-bar::after, .pencil-nav::after {
+  content:""; position:absolute; pointer-events:none;
+}
+.pencil-bar::after {
+  inset:auto 0 0; height:4px;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 4'%3E%3Cpath d='M0 2Q19 .4 36 1.6T79 2.1T121 1.5T160 2' fill='none' stroke='%23979388' stroke-width='1.2'/%3E%3C/svg%3E") left bottom/160px 4px repeat-x;
+}
+.pencil-nav::after {
+  inset:0 0 0 auto; width:4px;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 160'%3E%3Cpath d='M2 0Q.4 19 1.6 36T2.1 79T1.5 121T2 160' fill='none' stroke='%23979388' stroke-width='1.2'/%3E%3C/svg%3E") right top/4px 160px repeat-y;
+}
 .pencil-agents-entry {
   width: 48px;
   height: 48px;
@@ -365,7 +376,7 @@ a { color: #514b43; }
   display:flex;
   align-items:center;
   gap:24px;
-  margin:0 0 16px;
+  margin:10px 0 16px;
 }
 .pencil-shell main .content-launcher h1 {
   font-family:"Payo Moonless","PingFang SC","Microsoft YaHei",sans-serif;
@@ -409,10 +420,12 @@ a { color: #514b43; }
 }
 .pencil-shell main .content-mode-switch > button.text-btn {
   position:relative;
-  min-height:34px;
-  padding:5px 2px;
-  color:var(--muted);
-  font-size:14px;
+  min-height:44px;
+  min-width:48px;
+  padding:5px 4px;
+  color:#57544e;
+  font-size:22px;
+  font-weight:700;
   letter-spacing:.04em;
 }
 .pencil-shell main .content-mode-switch > button.text-btn.selected { color:var(--ink); }
