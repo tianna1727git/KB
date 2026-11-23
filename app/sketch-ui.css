@@ -1,0 +1,128 @@
+/* Payo hand-drawn pencil theme: paper surfaces, graphite outlines, restrained accents. */
+:root {
+  --ink: #343331;
+  --muted: #77746f;
+  --border: #d6d2ca;
+  --purple: #695d52;
+  --bg: #f8f7f3;
+  --pencil: #4a4844;
+  --pencil-soft: #8c8880;
+  --paper: #fffefa;
+  --paper-shadow: rgba(55, 52, 47, .10);
+}
+
+body {
+  background-color: var(--bg);
+  background-image: radial-gradient(#6a655b0c .7px, transparent .7px);
+  background-size: 7px 7px;
+  color: var(--ink);
+  font-family: "Kaiti SC", "STKaiti", "KaiTi", "Segoe Print", "Comic Sans MS", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 14px;
+}
+
+button, input, select, textarea { font-family: inherit; }
+
+button, .button {
+  border: 1.5px solid var(--pencil);
+  border-radius: 5px 7px 4px 6px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 1px 1px 0 var(--paper-shadow);
+  transition: background-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+button:hover:not(:disabled), .button:hover {
+  background: #f4f1e9;
+  border-color: #292825;
+  box-shadow: 2px 2px 0 var(--paper-shadow);
+  transform: translateY(-1px) rotate(-.15deg);
+}
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px dashed #777168;
+  outline-offset: 3px;
+}
+button.primary, .primary {
+  color: #fffefa;
+  background: #55514b;
+  border-color: #34322f;
+  box-shadow: 2px 2px 0 #34322f33;
+}
+button.primary:hover:not(:disabled), .primary:hover:not(:disabled) { background: #3e3b37; }
+button.text-btn, .text-btn { border: 0; box-shadow: none; background: transparent; color: #5d5851; }
+
+input:not([type="checkbox"]):not([type="radio"]), select, textarea {
+  border-color: #77736c !important;
+  border-radius: 5px 7px 4px 6px !important;
+  background-color: var(--paper) !important;
+  color: var(--ink) !important;
+  box-shadow: inset 0 0 0 1px #4a484408;
+}
+input[type="checkbox"], input[type="radio"] { accent-color: #625d55; }
+
+.sidebar {
+  background: #f1efe9;
+  color: #625e57;
+  border-right: 1px solid #c9c5bd;
+  box-shadow: 2px 0 0 #45423d0a;
+}
+.workspace-name { border-color: #c8c4bc; background: #fffefa; }
+.workspace-avatar { background: #e7e4dc; color: #46433d; border-color: #77736c; }
+.workspace-name b, .sidebar nav button, .profile b { color: #504d47; }
+.workspace-name small, .nav-label, .profile small { color: #807b73; }
+.sidebar nav button { border-radius: 4px 7px 5px 6px; }
+.sidebar nav button:hover, .sidebar nav button.active { background: #e6e2d9; color: #302e2a; }
+.sidebar nav em { background: #e3dfd6; color: #514d46; }
+.profile { border-color: #d0ccc4; }
+.profile>span { background: #dedbd3; color: #3e3b36; }
+.main-shell { background: transparent; }
+.topbar { background: #fffefa; color: #77736c; border-color: #d3cfc7; }
+
+/* Give cards and work areas the uneven, lightly doubled outline of pencil sketches. */
+:where(.stat, .hero-flow, .starter-task, .agent-card, .panel, .card, .seo-config-card,
+  .seo-new, .seo-job, .seo-results, .seo-history, .content-launcher, .content-insights,
+  .guided-research, .collected-article-browser, .article-output, .document-settings,
+  .material-cascade-column, .material-field-settings, .settings-card, .modal, .dialog,
+  .knowledge-studio, .library-view, .canvas-workspace, .saved-research-list) {
+  border-color: #aaa69e !important;
+  border-radius: 7px 10px 6px 9px !important;
+  box-shadow: 2px 2px 0 var(--paper-shadow), inset 0 0 0 1px #fffefa;
+}
+.stat, .hero-flow, .agent-card, .panel, .card, .seo-config-card, .seo-new, .seo-job,
+.seo-results, .seo-history, .content-launcher, .content-insights, .guided-research,
+.collected-article-browser, .article-output, .document-settings, .material-cascade-column,
+.material-field-settings, .settings-card, .modal, .dialog, .knowledge-studio,
+.library-view, .canvas-workspace, .saved-research-list { background-color: var(--paper); }
+
+.section-title h2, h1, h2, h3 { color: #373531; }
+.hero h1>span { color: #777168; }
+.eyebrow, .soft-label, .badge { color: #625d55 !important; }
+.hero-flow-heading, .hero-flow-foot, .article-output-toolbar, .article-tdk,
+.insights-source-fields, .collected-article-layout, .guided-research-basis {
+  border-color: #d0ccc4 !important;
+  background-color: #f5f3ed !important;
+}
+.starter-task { background: #f7f5ef; }
+.starter-icon, .agent-icon, .workspace-avatar { border: 1px solid #969188; }
+.agent-icon, .starter-icon { background: #efede7 !important; color: #5f5a52 !important; }
+.agent-icon.writer, .agent-icon.checker { background: #efede7 !important; color: #5f5a52 !important; }
+.content-launcher, .content-insights, .seo-config-card, .seo-new, .seo-job,
+.seo-results, .seo-history, .insights-settings, .content-rules { color: var(--ink); }
+.content-keyword, .content-persona-target, .guided-research-options>button,
+.collected-article-layout, .saved-research-list { border-color: #aaa69e; }
+.guided-research-options>button.selected, .collected-article-layout nav>button.selected {
+  background: #eeece5 !important;
+  border-color: #625d55 !important;
+  color: #34312d !important;
+}
+.guided-radio { border-color: #777168; color: #4c4841; }
+.badge, .soft-label, .insight-match { background: #eeece6 !important; border: 1px solid #c6c2b9; }
+.empty-icon { color: #625d55; }
+a { color: #514b43; }
+.article-rendered { color: #33312d; }
+.article-rendered a { color: #514b43; text-decoration: underline; text-decoration-style: dashed; }
+.article-rendered pre, .article-source { background: #f2f0ea; }
+
+@media (max-width: 760px) {
+  .sidebar { background: #f1efe9; }
+  main { padding-left: 18px; padding-right: 18px; }
+  .topbar { padding-left: 18px; padding-right: 18px; }
+}
