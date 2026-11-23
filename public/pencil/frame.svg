@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none">
-  <defs><filter id="p"><feTurbulence type="fractalNoise" baseFrequency=".055" numOctaves="1" seed="8" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="1.2"/></filter></defs>
-  <g fill="none" stroke="#aaa69e" stroke-linecap="round" filter="url(#p)">
-    <path stroke-width="1.25" d="M15 3Q30 2 48 3T84 3Q97 3 97 16T97 48T97 83Q97 97 84 97T50 97T15 97Q3 97 3 84T3 50T3 15Q3 4 15 3Z"/>
-    <path stroke-width=".6" opacity=".45" d="M18 5Q32 4 47 5M94 20Q95 35 94 48M81 95Q66 96 52 95M5 78Q4 63 5 49"/>
-  </g>
-</svg>

@@ -291,9 +291,9 @@ a { color: #514b43; }
   border:0 !important;
   border-radius:0 !important;
   box-shadow:none !important;
-  background-image:url('/pencil/frame.svg'), radial-gradient(#625e5508 .55px, transparent .65px) !important;
-  background-size:100% 100%, 6px 6px !important;
-  background-repeat:no-repeat, repeat !important;
+  background-image:radial-gradient(#625e5506 .55px, transparent .65px) !important;
+  background-size:6px 6px !important;
+  background-repeat:repeat !important;
 }
 .pencil-shell main :is(button:not(.text-btn):not(.icon-btn):not(.pencil-agents-entry):not([role="tab"]),a.button) {
   border:0 !important;
@@ -332,9 +332,7 @@ a { color: #514b43; }
   border-color:transparent !important;
   border-radius:0 !important;
   box-shadow:none !important;
-  background-image:url('/pencil/frame.svg') !important;
-  background-size:100% 100% !important;
-  background-repeat:no-repeat !important;
+  background-image:none !important;
 }
 .pencil-shell main :is(.icon-btn,.pencil-nav button,.pencil-agents-entry,.text-btn) {
   border:0 !important;
@@ -358,7 +356,5 @@ a { color: #514b43; }
 .pencil-shell main :is(.badge,.soft-label,.insight-match) {
   border:0 !important;
   border-radius:0 !important;
-  background-image:url('/pencil/frame.svg') !important;
-  background-size:100% 100% !important;
-  background-repeat:no-repeat !important;
+  background-image:none !important;
 }
