@@ -1,4 +1,5 @@
 'use client';
+import {useState} from 'react';
 import {ArrowRight,Bot,ChevronRight,Workflow} from 'lucide-react';
 import {systemPrompt} from '../lib/studio/agent.mjs';
 import type {} from 'vite/client';
@@ -36,14 +37,21 @@ function displayAgentText(text:string) {
 }
 
 export function AgentsFlowSettings({agents,config,onNavigate,onSettings}:Props){
+ const [expanded,setExpanded]=useState<Record<string,boolean>>({});
  return <>
   <div className="page-heading"><div><h1>Agents</h1><p>查看每个Agent实际接收的数据、输出结果、执行规则和实现代码。</p></div></div>
-  <div className="agent-cards">{agents.map((agent,index)=>{const detail=io[agent.id];return <section className="panel agent-card" key={agent.id}>
-   <div className={'agent-icon '+agent.id}><Bot size={25}/></div><span className="agent-order">AGENT0{index+1}</span>
+  <div className="agent-cards">{agents.map(agent=>{const detail=io[agent.id];return <section className="panel agent-card" key={agent.id}>
+   <header className="agent-card-heading">
+    <div className={'agent-icon '+agent.id}><Bot size={25}/></div>
+    {detail&&<button type="button" className="text-btn" aria-expanded={!!expanded[agent.id]} aria-controls={'agent-spec-'+agent.id}
+      onClick={()=>setExpanded(current=>({...current,[agent.id]:!current[agent.id]}))}>
+      {expanded[agent.id]?'收起执行规则与代码':'查看执行规则与代码'}
+    </button>}
+   </header>
    <h2>{displayAgentText(agent.name)}</h2><p>{displayAgentText(agent.role)}</p><div className="tag-list">{agent.tools.map(tool=><span key={tool}>{displayAgentText(tool)}</span>)}</div>
    <footer>{agent.id==='seo-keywords'?<button className="text-btn" onClick={()=>onNavigate('seo')}>开始关键词研究<ArrowRight size={14}/></button>:agent.id==='publisher'?<button className="text-btn" onClick={onSettings}>查看发布设置<ChevronRight size={14}/></button>:<button className="text-btn model-config-link" onClick={onSettings}><i className={(agent.id==='ingestion'?config.knowledgeModel:config.model)?'live-dot':'idle-dot'}/>{(agent.id==='ingestion'?config.knowledgeModel:config.model)?'模型已配置 · 管理':'等待模型配置 · 去配置'}<ChevronRight size={14}/></button>}</footer>
-   {detail&&<details className="agent-spec"><summary>查看执行规则与代码</summary><div className="agent-spec-grid"><section><h3>输入</h3><ul>{detail.input.map(x=><li key={x}>{x}</li>)}</ul></section><section><h3>输出</h3><ul>{detail.output.map(x=><li key={x}>{x}</li>)}</ul></section></div><p className="agent-rule-summary"><b>规则摘要：</b>{detail.rule}</p><section className="agent-code"><h3>执行规则</h3><pre>{detail.code}</pre>
-     <h3>实现代码 · {implementation[agent.id].file}</h3><pre tabIndex={0}>{implementation[agent.id].source}</pre></section><small>内容来自当前工作区执行规则；任务实际输入和输出以该任务的执行记录为准。</small></details>}
+   {detail&&<div className="agent-spec" id={'agent-spec-'+agent.id} hidden={!expanded[agent.id]}><div className="agent-spec-grid"><section><h3>输入</h3><ul>{detail.input.map(x=><li key={x}>{x}</li>)}</ul></section><section><h3>输出</h3><ul>{detail.output.map(x=><li key={x}>{x}</li>)}</ul></section></div><p className="agent-rule-summary"><b>规则摘要：</b>{detail.rule}</p><section className="agent-code"><h3>执行规则</h3><pre>{detail.code}</pre>
+     <h3>实现代码 · {implementation[agent.id].file}</h3><pre tabIndex={0}>{implementation[agent.id].source}</pre></section><small>内容来自当前工作区执行规则；任务实际输入和输出以该任务的执行记录为准。</small></div>}
   </section>})}</div>
   <div className="section-title"><h2>固定工作流</h2><span>每一步都保留人工确认</span></div>
   {[
