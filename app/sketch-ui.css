@@ -320,9 +320,13 @@ a { color: #514b43; }
 }
 /* One graphite fill for primary actions, including dialogs and button links. */
 :is(button.primary, a.primary, [data-slot="button"][data-variant="default"], .pencil-desk button[type="submit"]) {
-  background:#292929 url('/pencil/fill.svg') center / 100% 100% no-repeat !important;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  background:transparent url('/pencil/primary-button.svg') center / 100% 100% no-repeat !important;
   border:0 !important;
-  border-radius:5px 7px 5px 4px / 7px 5px 7px 4px !important;
+  border-radius:0 !important;
   color:#fff !important;
   box-shadow:none !important;
 }
