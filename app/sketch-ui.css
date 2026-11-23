@@ -276,3 +276,89 @@ a { color: #514b43; }
   main { padding-left: 18px; padding-right: 18px; }
   .topbar { padding-left: 18px; padding-right: 18px; }
 }
+
+/* Sketchbook UI adaptation: paper grain, hand-drawn borders, and quiet motion. */
+.pencil-shell main {
+  background-image: radial-gradient(#6a655b08 .65px, transparent .7px);
+  background-size: 7px 7px;
+}
+.pencil-shell main :is(.panel,.card,.stat,.agent-card,.settings-card,.content-launcher,
+  .content-insights,.guided-research,.collected-article-browser,.saved-research-list,
+  .article-output,.document-settings,.material-cascade-column,.material-field-settings,
+  .knowledge-studio,.library-view,.canvas-workspace,.modal,.dialog,.title-selection,
+  .publishing-setup,.persona-card,.insights-source-card,.seo-config-card,.seo-results,
+  .seo-history,.seo-job,.seo-new) {
+  border:0 !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+  background-image:url('/pencil/frame.svg'), radial-gradient(#625e5508 .55px, transparent .65px) !important;
+  background-size:100% 100%, 6px 6px !important;
+  background-repeat:no-repeat, repeat !important;
+}
+.pencil-shell main :is(button:not(.text-btn):not(.icon-btn):not(.pencil-agents-entry):not([role="tab"]),a.button) {
+  border:0 !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+  background-image:url('/pencil/outline.svg') !important;
+  background-size:100% 100% !important;
+  background-repeat:no-repeat !important;
+  transform:rotate(-.16deg);
+  transition:transform .2s ease, filter .2s ease;
+}
+.pencil-shell main :is(button.primary,a.button.primary) {
+  background-image:url('/pencil/outline-light.svg') !important;
+}
+.pencil-shell main :is(button:not(:disabled):not(.text-btn):not(.icon-btn):not([role="tab"]):hover,a.button:hover) {
+  transform:translateY(-1px) rotate(-.55deg);
+}
+.pencil-shell main :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea) {
+  border:0 !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+  background-image:url('/pencil/outline.svg') !important;
+  background-size:100% 100% !important;
+  background-repeat:no-repeat !important;
+  filter:none !important;
+}
+.pencil-shell main :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea):focus-visible {
+  outline:0 !important;
+  background-image:url('/pencil/outline-focus.svg') !important;
+  background-size:100% 100% !important;
+  background-repeat:no-repeat !important;
+  filter:none !important;
+}
+.pencil-shell main :is(.content-keyword,.content-persona-target,.guided-research-options>button,
+  .collected-article-layout,.task-modal-note) {
+  border-color:transparent !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+  background-image:url('/pencil/frame.svg') !important;
+  background-size:100% 100% !important;
+  background-repeat:no-repeat !important;
+}
+.pencil-shell main :is(.icon-btn,.pencil-nav button,.pencil-agents-entry,.text-btn) {
+  border:0 !important;
+  border-radius:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  transform:none !important;
+}
+.pencil-shell main :is(.icon-btn,.pencil-nav button,.pencil-agents-entry,.text-btn) svg,
+.pencil-shell main svg.lucide {
+  filter:url(#payo-pencil-wobble);
+  stroke-width:2.1;
+}
+.pencil-shell main :is(hr,.divider-line) {
+  height:3px;
+  border:0 !important;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 4' preserveAspectRatio='none'%3E%3Cpath d='M2 2Q140 1 300 2T598 2' fill='none' stroke='%23aaa69e' stroke-width='1'/%3E%3Cpath d='M4 3Q190 2.5 420 3T596 3' fill='none' stroke='%23aaa69e' stroke-opacity='.38' stroke-width='.6'/%3E%3C/svg%3E") center/100% 100% no-repeat !important;
+}
+.pencil-shell main :is(.table-wrap,table) { box-shadow:none !important; }
+.pencil-shell main :is(th,td) { border-color:color-mix(in srgb, var(--border) 65%, transparent) !important; }
+.pencil-shell main :is(.badge,.soft-label,.insight-match) {
+  border:0 !important;
+  border-radius:0 !important;
+  background-image:url('/pencil/frame.svg') !important;
+  background-size:100% 100% !important;
+  background-repeat:no-repeat !important;
+}
