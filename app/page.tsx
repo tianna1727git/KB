@@ -64,14 +64,15 @@ export default function Studio(){
  const exportArticle=async()=>{if(!task)return;try{const result=await api('articleOutput',{id:task.id,revision:task.revision,markdown:body,title}),url=URL.createObjectURL(new Blob([result.markdown],{type:'text/markdown;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=title.replace(/[\\/:*?"<>|]/g,'-')+'.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(e:any){toast(e.message);}};
  const ds=data?.documents||[],ks=(data?.chunks||[]).filter((k:R)=>k.state!=='excluded'),ts=data?.tasks||[],pending=ks.filter((k:R)=>k.state==='pending');const viewNames:R={offline:'Codex 结果导入',library:'资料库',ingestion:'知识整理 Agent',materials:'资料库',document:'资料与切片',knowledge:'知识库',content:'内容生产工作台',task:'文章任务',agents:'Agent 与 Flow',settings:'工作台设置',seo:'SEO关键词研究'};
  const taskTable=(items:R[])=><div className="table-wrap"><table><thead><tr><th>文章任务</th><th>平台与读者</th><th>当前步骤</th><th>状态</th><th>更新时间</th><th/></tr></thead><tbody>{items.map(t=><tr key={t.id}><td><div className="table-title"><span className="file-icon"><FileText size={18}/></span><div><b>{t.title}</b><small>{t.keyword}</small></div></div></td><td><b className="plain">{t.platform}</b><small className="truncate">{t.audience}</small></td><td>{stageNames[t.stage]}</td><td><Badge state={t.state}/></td><td>{fmt(t.updated)}</td><td><button className="text-btn" onClick={()=>run(()=>openTask(t.id))}>继续 <ArrowRight size={15}/></button></td></tr>)}</tbody></table></div>;
- return <div className="shell pencil-shell" data-view={view}>{ts.filter((t:R)=>t.stage==='batch').map((t:R)=><ArticleBatch key={t.id} task={t} background modelReady={!!data?.config.model} onOpen={()=>{}} skipTaskId={view==='task'?task?.id:''}/>)}<nav className="pencil-nav" aria-label="Workspace">
-   {Object.entries({content:'Writing desk',library:'Library',knowledge:'Knowledge base',seo:'Keyword research',agents:'Agents and flows'}).map(([id,label])=>{
+  return <div className="shell pencil-shell" data-view={view}>{ts.filter((t:R)=>t.stage==='batch').map((t:R)=><ArticleBatch key={t.id} task={t} background modelReady={!!data?.config.model} onOpen={()=>{}} skipTaskId={view==='task'?task?.id:''}/>)}<nav className="pencil-nav" aria-label="Workspace">
+    {Object.entries({content:'Writing desk',library:'Library',knowledge:'Knowledge base',seo:'Keyword research'}).map(([id,label])=>{
      const selected=view===id||(id==='library'&&['document','materials','ingestion'].includes(view))||(id==='content'&&view==='task');
      return <button key={id} type="button" title={label} aria-label={label} aria-current={selected?'page':undefined} onClick={()=>nav(id)}>
        <img src={'/pencil/'+id+'.svg'} alt=""/>{id==='knowledge'&&pending.length>0&&<small>{pending.length}</small>}
      </button>;
    })}
- </nav><div className="main-shell"><header className="pencil-bar">
+  </nav><div className="main-shell"><header className="pencil-bar">
+    <button className="pencil-agents-entry" type="button" title="Agents and flows" aria-label="Agents and flows" aria-current={view==='agents'?'page':undefined} onClick={()=>nav('agents')}><img src="/pencil/agents.svg" alt=""/></button>
    <details key={view}><summary aria-label="Personal settings" title="Personal settings"><img src="/pencil/profile.svg" alt=""/></summary>
      <div><button onClick={e=>{e.currentTarget.closest('details')?.removeAttribute('open');nav('settings');}}>Workspace settings</button><a href="/auth/logout" target="_top">Log out</a></div>
    </details></header><main>
