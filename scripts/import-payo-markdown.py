@@ -152,6 +152,52 @@ def organize(stage,file_id):
             doc=stage.api('document/'+did)
     return ('已入库' if doc['state']=='ready' else '切片已保存，待复核'),len(doc.get('chunks',[]))
 
+def retry_condition_group(stage, report):
+    reason = '前置条件、限制或公式必须逐字引用当前证据'
+    with report.open(encoding='utf-8-sig') as handle:
+        rows = [row for row in csv.DictReader(handle)
+                if row['状态'] == '整理任务failed ' + reason and row['资料ID']]
+    pilots = [r for r in rows if '管理费用支出预算' in r['原文件名称'] and r['原文件名称'].lower().endswith('.pdf')]
+    if len(pilots) != 1:
+        raise ValueError('结果表无法唯一定位预算指南样本，已停止')
+    pilot = pilots[0]
+    seen = set()
+    for row in [pilot, *rows]:
+        fid = row['资料ID']
+        if fid in seen:
+            continue
+        seen.add(fid)
+        source = stage.api('library/' + urllib.parse.quote(fid, safe=''))
+        if source.get('name') != Path(row['ZIP正文']).name:
+            raise ValueError('资料ID与导入记录的正文文件名不匹配')
+        job = stage.api('ingestionStart', {'id':fid})
+        if job['state'] == 'failed' and job.get('error') == reason:
+            job = stage.api('ingestionRun', {'id':job['id'], 'revision':job['revision'], 'retry':True})
+        while job['state'] == 'waiting':
+            job = stage.api('ingestionRun', {'id':job['id'], 'revision':job['revision']})
+        checks = {c['itemId']:c for c in job.get('checks', [])}
+        traceable = []
+        original = source.get('markdown', '').encode('utf-16-le')
+        for item in job.get('items', []):
+            refs = item.get('evidence', [])
+            check = checks.get(item['id'], {})
+            if not refs or not check.get('supported') or check.get('issues'):
+                continue
+            if any(not (0 <= e['start'] < e['end'] <= len(original)//2) or
+                   original[2*e['start']:2*e['end']] != e['quote'].encode('utf-16-le') for e in refs):
+                raise ValueError('切片引文与原文位置不符，已停止')
+            traceable.append(item)
+        print(row['原文件名称'], job['state'], job.get('error',''), '证据复核通过',len(traceable),flush=True)
+        if row is pilot:
+            if job['state'] != 'succeeded' or not traceable:
+                raise SystemExit('样本尚未通过，未启动其他资料。')
+            first = traceable[0]
+            print('样本切片：', first['statement'])
+            for ref in first['evidence']:
+                print('原文', ref['blockId'], ref['start'], ref['end'], ref['quote'])
+        if job['state'] == 'succeeded' and traceable:
+            print(*organize(stage, fid),flush=True)
+
 def detach(logpath):
     sys.stdout.flush()
     sys.stderr.flush()
@@ -169,6 +215,7 @@ def detach(logpath):
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('zip',nargs='?',help='原始Markdown ZIP路径')
+    parser.add_argument('--retry-conditions',action='store_true',help='用已有ID验证预算指南，再重跑相同错误资料')
     parser.add_argument('--sync-scopes',action='store_true',help='只按清单同步已有资料的使用范围')
     parser.add_argument('--background',action='store_true',help='登录后在后台继续处理')
     parser.add_argument('--preview',action='store_true',help='只核对文件匹配')
@@ -181,6 +228,16 @@ def main():
             fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError:
             raise SystemExit('同一ZIP已有后台导入在运行。')
+    if args.retry_conditions:
+        stage=Stage()
+        stage.login()
+        report=path.with_name(path.stem+'-入库结果.csv')
+        if not report.is_file():
+            raise SystemExit('找不到逐份入库结果CSV：'+str(report))
+        if detach(path.with_suffix('.conditions.log').resolve()):
+            retry_condition_group(stage,report)
+            print('本轮同类资料检查结束。',flush=True)
+        return
     rows=read_manifest(Path(args.manifest))
     catalog={x['name']:x for x in json.loads(Path('lib/studio/library-data.json').read_text())}
     with zipfile.ZipFile(path) as archive:

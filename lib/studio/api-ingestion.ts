@@ -20,7 +20,7 @@ export async function apiIngestionAPI(req:Request,env:any,ctx:R){const {get,save
  if(action==='ingestionRun'){
  let j=await get(b.id,'ingestion');if(j.state==='succeeded')return json(view(j));if(j.revision!==b.revision||j.state==='running')fail('任务正在执行或已更新',409);if(j.state==='failed'&&b.retry!==true)fail('请明确重试当前步骤');if(!configured())fail('知识整理模型尚未配置：请设置 KNOWLEDGE_AI_URL、KNOWLEDGE_AI_MODEL、KNOWLEDGE_AI_KEY，或共用 AI_URL / AI_MODEL / AI_KEY。当前没有发起模型调用。',503);const currentKey=await fingerprint(j.blocks.map((b:R)=>b.text).join('')+'\nsource-revision:'+j.sourceRevision+(j.organizationContext?'\n'+j.organizationContext.libraryCategory+(j.organizationContext.ruleVersion?'\n'+j.organizationContext.ruleVersion:''):''),j.pipeline||'semantic-v1');if(j.model&&j.cacheKey!==currentKey)fail('模型配置已变化，请重新从资料库创建任务');
  const retryGuidance:Record<string,string>={
-  '前置条件、限制或公式必须逐字引用当前证据':'逐项核对prerequisites、conditions、toolInputs、toolOutputs、formulas。每个字符串都必须是本知识点所选anchor中连续的原文。保留标点和空格；没有对应原文的字段返回空数组，不能省略主张所需的适用条件。',
+  '前置条件、限制或公式必须逐字引用当前证据':'逐项核对prerequisites、conditions、toolInputs、toolOutputs、formulas。每项填写当前切片已选anchor所属的organizationExcerpts编号，由系统还原原句；没有对应原文的字段返回空数组，不能省略主张所需的适用条件。',
   '时间信息必须有当前原文证据，不得补造日期':'dates.value逐字复制本知识点所选anchor中的日期表达，保持原格式。不要从文件名或别的条目取日期，不转换ISO日期，不推断生效时间。无明确日期时返回空数组。',
   '每个知识点必须有1–12条原文证据':'每项evidence返回1至12条当前输入中的anchorId。没有证据支持时把该段记入omissions。'
  };
