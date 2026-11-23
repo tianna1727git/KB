@@ -308,7 +308,7 @@ a { color: #514b43; }
   background-size:6px 6px !important;
   background-repeat:repeat !important;
 }
-.pencil-shell main :is(button:not(.text-btn):not(.icon-btn):not(.pencil-agents-entry):not([role="tab"]),a.button) {
+.pencil-shell main :is(button:not(.text-btn):not(.icon-btn):not(.pencil-agents-entry):not([role="tab"]),a.button):not(:where(.primary,[data-slot="button"][data-variant="default"],.pencil-desk button[type="submit"])) {
   border:0 !important;
   border-radius:0 !important;
   box-shadow:none !important;
@@ -318,8 +318,13 @@ a { color: #514b43; }
   transform:rotate(-.16deg);
   transition:transform .2s ease, filter .2s ease;
 }
-.pencil-shell main :is(button.primary,a.button.primary) {
-  background-image:url('/pencil/outline-light.svg') !important;
+/* One graphite fill for primary actions, including dialogs and button links. */
+:is(button.primary, a.primary, [data-slot="button"][data-variant="default"], .pencil-desk button[type="submit"]) {
+  background:#292929 url('/pencil/fill.svg') center / 100% 100% no-repeat !important;
+  border:0 !important;
+  border-radius:5px 7px 5px 4px / 7px 5px 7px 4px !important;
+  color:#fff !important;
+  box-shadow:none !important;
 }
 .pencil-shell main :is(button:not(:disabled):not(.text-btn):not(.icon-btn):not([role="tab"]):hover,a.button:hover) {
   transform:translateY(-1px) rotate(-.55deg);
@@ -477,10 +482,7 @@ body:has(.geo-dialog[open]) { overflow:hidden; }
 .pencil-shell main .persona-settings .persona-card :is(input:not([type="checkbox"]), textarea):is(:hover,:focus) {
   background:transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 5' preserveAspectRatio='none'%3E%3Cpath d='M1 3Q38 1 76 2.5T147 2.1T204 2.7T239 2' fill='none' stroke='%23646159' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E") bottom / 100% 5px no-repeat !important;
 }
-.pencil-shell main .persona-settings button.primary {
-  background:transparent url('/pencil/fill.svg') center / 100% 100% no-repeat !important;
-  color:var(--paper);
-}
+
 
 .persona-card-actions .icon-btn { width:36px; min-height:36px; padding:6px; }
 .persona-card-actions .icon-btn::after { content:none !important; }
