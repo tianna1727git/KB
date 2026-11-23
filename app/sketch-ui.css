@@ -515,3 +515,52 @@ body:has(.geo-dialog[open]) { overflow:hidden; }
   max-height:22rem; overflow:auto; white-space:pre-wrap;
   overflow-wrap:anywhere; font:13px/1.6 ui-monospace, monospace;
 }
+
+.workspace-brewing {
+  min-height: min(68svh, 38rem);
+  padding: 1.5rem .75rem;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  text-align: center;
+}
+.brewing-band {
+  position: relative;
+  width: min(18rem, 90%);
+  aspect-ratio: 1.68;
+  margin-bottom: 1.4rem;
+}
+.brewing-band img { position: absolute; height: auto; }
+.brewing-trumpet {
+  width: 34%; left: 0; bottom: 0;
+  transform-origin: 41% 95%;
+  animation: brewing-trumpet 1.9s ease-in-out infinite;
+}
+.brewing-sax {
+  width: 34%; right: 0; bottom: 0;
+  transform-origin: 70% 94%;
+  animation: brewing-sax 1.9s ease-in-out -.45s infinite;
+}
+.brewing-neon {
+  width: 22%; left: 37%; top: 3%;
+  transform-origin: 7% 14%;
+  animation: brewing-light 3.8s ease-in-out infinite;
+}
+.workspace-brewing h2 { margin: 0; font-size: clamp(1.45rem, 3vw, 2rem); line-height: 1.25; color: #423d38; }
+.workspace-brewing p { margin: .6rem 0 0; font-size: 1.05rem; line-height: 1.45; color: #6b615c; }
+@keyframes brewing-trumpet {
+  0%, 50%, 100% { transform: rotate(-2deg); }
+  24% { transform: rotate(2deg) scaleY(.988); }
+  74% { transform: rotate(1deg); }
+}
+@keyframes brewing-sax {
+  0%, 100% { transform: rotate(1.5deg); }
+  50% { transform: rotate(-2.5deg) scaleY(.985); }
+}
+@keyframes brewing-light {
+  0%, 100% { transform: rotate(-1deg); filter: brightness(.96); }
+  50% { transform: rotate(1deg); filter: brightness(1.13); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .brewing-band img { animation: none; }
+}
