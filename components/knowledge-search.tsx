@@ -49,14 +49,14 @@ export function KnowledgeSearch({categories,onDetail,onSource,refreshKey=0}:{cat
    </aside>
    <div className="knowledge-search-results" aria-busy={loading}>
     {!query?<div className="knowledge-search-start"><span className="knowledge-start-icon"><Search size={28}/></span><h3>从一个问题开始</h3><p>搜索后，按来源资料分类查看命中的知识与原文依据。</p><div>{['预约汇率','收款账户','跨境退税'].map(word=><button key={word} onClick={()=>{setInput(word);setQuery(word);setPage(1);}}>试试“{word}”<ArrowRight size={13}/></button>)}</div></div>:<>
-     <div className="knowledge-results-toolbar"><div><h3>检索结果</h3><p role="status">{loading?'正在查找相关知识…':result?<>找到 <strong>{result.total}</strong> 条知识{result.sourceCount!==undefined&&<>，来自 {result.sourceCount} 份资料</>}</>:'检索未完成'}</p></div><button onClick={clear}><X size={14}/>清除检索</button></div>
+     <div className="knowledge-results-toolbar"><div><h3>检索结果</h3><p role="status">{loading?'正在查找相关知识…':result?<>找到 <strong>{result.total}</strong> 条知识{result.sourceCount!==undefined&&<>，来自{result.sourceCount}份资料</>}</>:'检索未完成'}</p></div><button onClick={clear}><X size={14}/>清除检索</button></div>
      <div className="knowledge-results-options"><label className="knowledge-context-toggle"><input type="checkbox" checked={includeContext} onChange={event=>{setIncludeContext(event.target.checked);setPage(1);}}/>显示关联上下文</label><span>按相关度排序</span></div>
      {category!=='all'&&<div className="knowledge-active-filter"><span>资料分类</span><button onClick={()=>chooseCategory('all')}>{categoryLabel(category)}<X size={12}/></button></div>}
      {error&&<div className="banner error" role="alert">{error}<button onClick={()=>setRetry(n=>n+1)}>重试</button></div>}
      {loading&&<div className="knowledge-search-loading"><LoaderCircle size={24} className="spin"/><p>正在查找知识与来源…</p></div>}
      {!loading&&result?.total===0&&<div className="knowledge-search-start"><Search size={25}/><h3>暂无匹配的知识</h3><p>试试缩短关键词、切换资料分类，或显示关联上下文。</p>{category!=='all'&&<button onClick={()=>chooseCategory('all')}>查看全部分类</button>}</div>}
      {[...groups].map(([name,items])=><section className="knowledge-result-group" key={name}>
-      <button className="knowledge-group-heading" aria-expanded={!collapsed.includes(name)} onClick={()=>setCollapsed(values=>values.includes(name)?values.filter(value=>value!==name):[...values,name])}><FolderOpen size={15}/><h3>{categoryLabel(name)}</h3><span>共 {result?.categories?.find((item:R)=>item.name===name)?.count||items.length} 条 · 本页 {items.length} 条</span><ChevronDown size={16} className={collapsed.includes(name)?'':'expanded'}/></button>
+      <button className="knowledge-group-heading" aria-expanded={!collapsed.includes(name)} onClick={()=>setCollapsed(values=>values.includes(name)?values.filter(value=>value!==name):[...values,name])}><FolderOpen size={15}/><h3>{categoryLabel(name)}</h3><span>共{result?.categories?.find((item:R)=>item.name===name)?.count||items.length}条 · 本页{items.length}条</span><ChevronDown size={16} className={collapsed.includes(name)?'':'expanded'}/></button>
       {!collapsed.includes(name)&&items.map(item=>{
        const full=summaryText(item),preview=excerpt(item,terms),isExpanded=expanded.includes(item.id),tags=[...new Set([item.type,...item.platforms||[],...item.regions||[],...item.products||[]].filter(Boolean))].slice(0,4);
        return <article className="knowledge-search-card" key={item.id}>
@@ -69,7 +69,7 @@ export function KnowledgeSearch({categories,onDetail,onSource,refreshKey=0}:{cat
        </article>;
       })}
      </section>)}
-     {!loading&&result&&result.total>0&&<footer className="knowledge-search-pagination"><span>每页 12 条 · 第 {result.page} / {result.pages} 页</span><div><button disabled={result.page<=1} onClick={()=>{setPage(result.page-1);setCollapsed([]);setExpanded([]);}}>上一页</button><button disabled={result.page>=result.pages} onClick={()=>{setPage(result.page+1);setCollapsed([]);setExpanded([]);}}>下一页</button></div></footer>}
+     {!loading&&result&&result.total>0&&<footer className="knowledge-search-pagination"><span>每页12条 · 第{result.page} / {result.pages}页</span><div><button disabled={result.page<=1} onClick={()=>{setPage(result.page-1);setCollapsed([]);setExpanded([]);}}>上一页</button><button disabled={result.page>=result.pages} onClick={()=>{setPage(result.page+1);setCollapsed([]);setExpanded([]);}}>下一页</button></div></footer>}
     </>}
    </div>
   </div>

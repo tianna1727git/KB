@@ -11,3 +11,7 @@
 首次打开字段设置不会改写历史数据；用户保存时才写配置及创建分类完整性触发器。无需单独运行数据库迁移脚本。更新仅限 Payo Stage 验收分支。
 
 验证：`npm run test:material-categories`，已有 library-metadata、MinerU、MCP、SEO 集成测试和 knowledge-library 单元测试，以及 `npm run build`。浏览器检查覆盖齿轮入口、Tab 切换、两级分类添加保存、自定义分类上传选择及原有服务配置展示。所有外部接口均使用固定测试响应。
+
+## 界面文案排版
+
+中文、英文字母和数字在界面标签、按钮、提示和计数中相邻时不加空格，例如「Persona设置」「6个读者画像」「200MB」。英文词组和姓名保留词间空格，例如「Saved Insights」和「Alex Morgan」。源代码、用户原文和可复制的命令保持原样。
