@@ -1,5 +1,5 @@
 """Import ProductMarketingChina Markdown using Payo Stage's authenticated APIs."""
-import argparse, collections, csv, getpass, http.cookiejar, json
+import argparse, collections, csv, fcntl, getpass, http.cookiejar, json, os, sys, time
 import re, unicodedata, urllib.error, urllib.parse, urllib.request, uuid, zipfile
 from pathlib import Path
 
@@ -100,7 +100,7 @@ def organize(stage,file_id):
         j=stage.api('ingestionJob?id='+urllib.parse.quote(j['id']))
     retried=False
     while True:
-        retry=(not retried and j['state']=='failed' and '1–12条原文证据' in (j.get('error') or ''))
+        retry=(not retried and j['state']=='failed' and any(reason in (j.get('error') or '') for reason in ('1–12条原文证据','前置条件、限制或公式必须逐字引用当前证据','时间信息必须有当前原文证据','上次步骤已中断')))
         if j['state']!='waiting' and not retry:
             break
         retried=retried or retry
@@ -126,13 +126,34 @@ def organize(stage,file_id):
             doc=stage.api('document/'+did)
     return ('已入库' if doc['state']=='ready' else '切片已保存，待复核'),len(doc.get('chunks',[]))
 
+def detach(logpath):
+    sys.stdout.flush()
+    sys.stderr.flush()
+    with open(logpath,'a',encoding='utf-8') as log, open(os.devnull) as quiet:
+        pid=os.fork()
+        if pid:
+            print(f'已启动后台导入，PID {pid}。查看进度：tail -f "{logpath}"')
+            return False
+        os.setsid()
+        os.dup2(quiet.fileno(),0)
+        os.dup2(log.fileno(),1)
+        os.dup2(log.fileno(),2)
+    return True
+
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('zip',nargs='?',help='原始Markdown ZIP路径')
+    parser.add_argument('--background',action='store_true',help='登录后在后台继续处理')
     parser.add_argument('--preview',action='store_true',help='只核对文件匹配')
     parser.add_argument('manifest',help='SharePoint Markdown清单')
     args=parser.parse_args()
     path=Path(args.zip or input('原始ZIP路径：').strip().strip('"')).expanduser()
+    if not args.preview:
+        lock=path.with_suffix('.import.lock').open('a')
+        try:
+            fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise SystemExit('同一ZIP已有后台导入在运行。')
     rows=read_manifest(Path(args.manifest))
     catalog={x['name']:x for x in json.loads(Path('lib/studio/library-data.json').read_text())}
     with zipfile.ZipFile(path) as archive:
@@ -144,6 +165,12 @@ def main():
             stage.login()
             categories={n['value'] for n in stage.api('materialCategories')['nodes']}
         output=path.with_name(path.stem+('-预检' if args.preview else '-入库结果')+'.csv')
+        if args.background and not args.preview:
+            logpath=path.with_suffix('.import.log').resolve()
+            if not detach(logpath):
+                return
+            if output.exists():
+                output.rename(output.with_name(output.stem+'-'+str(time.time_ns())+'.csv'))
         with output.open('w',encoding='utf-8-sig',newline='') as log:
             writer=csv.writer(log);writer.writerow(['原文件名称','原始分享权限','使用范围','ZIP正文','状态','资料ID','已保存切片数'])
             for n,r in enumerate(rows):
