@@ -238,8 +238,18 @@ export async function api(req:Request,env:any){try{
  const resume=action==='completeKnowledgeReview'?await get(b.id,'document'):null;
  if(resume&&(!resume.organizationContext?.ruleVersion||resume.state!=='review'))fail('当前资料无需完成入库',409);
  if(!resume){
- if(!Array.isArray(b.ids)||!b.ids.length||b.ids.length>200)fail('请选择1–200条切片');const selected=await Promise.all(b.ids.map((x:string)=>get(x,'chunk')));if(selected.some(k=>k.state!=='pending'))fail('仅可确认待确认切片');if(b.riskConfirmed!==true&&selected.some(k=>k.risks.length))fail('重点切片需要逐条对照确认');if(b.riskConfirmed&&selected.length!==1)fail('重点内容请逐条确认');if(selected.some(k=>!k.body.replace(/^#{1,6}[^\n]*(?:\n|$)/gm,'').trim()))fail('仅标题的切片不可入库，请补充正文');
- for(const k of selected){await save(k,{confirmedAt:now(),confirmedBy:uid},'approved');reviewedDocs.add(k.docId);}}
+ if(!Array.isArray(b.ids)||!b.ids.length||b.ids.length>200)fail('请选择1–200条切片');const selected=await Promise.all(b.ids.map((x:string)=>get(x,'chunk')));if(selected.some(k=>k.state!=='pending'))fail('仅可确认待确认切片');if(b.autoStore===true){
+  const d=await get(selected[0].docId,'document'),j=await get(d.ingestionId,'ingestion');
+  if(d.state!=='review'||d.supersededBy||d.disabled||j.state!=='succeeded'||j.documentId!==d.id)fail('整理结果不适用自动入库',409);
+  const source=await get(j.sourceId);
+  if(source.disabled||source.supersededBy||source.revision!==j.sourceRevision)fail('来源已变化，请重新整理',409);
+  for(const k of selected){
+   const check=j.checks.find((v:R)=>v.itemId===k.sourceItemId);
+   if(k.docId!==d.id||k.ingestionId!==j.id||k.edited||!check?.supported||check.issues?.length||k.conflicts?.length||
+      !k.evidence?.length||!k.evidence.every((e:R)=>d.markdown.slice(e.start,e.end)===e.quote))fail('切片未通过自动证据校验',409);
+  }
+ }if(b.autoStore!==true&&b.riskConfirmed!==true&&selected.some(k=>k.risks.length))fail('重点切片需要逐条对照确认');if(b.riskConfirmed&&selected.length!==1)fail('重点内容请逐条确认');if(selected.some(k=>!k.body.replace(/^#{1,6}[^\n]*(?:\n|$)/gm,'').trim()))fail('仅标题的切片不可入库，请补充正文');
+ for(const k of selected){await save(k,{confirmedAt:now(),confirmedBy:uid,...(b.autoStore===true?{confirmationMode:'automatic',classification:'Agent证据校验通过，自动入库'}:{})},'approved');reviewedDocs.add(k.docId);}}
  const docIds=resume?[resume.id]:[...reviewedDocs];for(const did of docIds){const d=await get(did),all=(await list('chunk')).filter((k:R)=>k.docId===did&&k.state!=='excluded');if(resume&&(!all.length||all.some((k:R)=>k.state!=='approved')))fail('还有待确认切片',409);if(all.length&&all.every((k:R)=>k.state==='approved')){
  if(d.organizationContext?.ruleVersion){
   for(const k of all){

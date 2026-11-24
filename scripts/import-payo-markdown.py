@@ -190,6 +190,81 @@ def organize(stage,file_id):
             doc=stage.api('document/'+did)
     return ('已入库' if doc['state']=='ready' else '切片已保存，待复核'),len(doc.get('chunks',[]))
 
+def store_parsed_source(stage, file):
+    source_id = file['id'] if file.get('isDocument') and file.get('semantic') else file.get('libraryId') or file['id']
+    job = stage.api('ingestionStart', {'id':source_id})
+    attempts = collections.Counter()
+    for _ in range(1500):
+        if job['state'] in ('running','committing'):
+            time.sleep(4)
+            job = stage.api('ingestionJob?id='+urllib.parse.quote(job['id']))
+            continue
+        if job['state'] not in ('failed','waiting'):
+            break
+        key = (job.get('stage'), job.get('cursor'))
+        if job['state']=='failed':
+            if attempts[key]>=2:
+                break
+            attempts[key] += 1
+        job = stage.api('ingestionRun', {'id':job['id'],'revision':job['revision'],'retry':job['state']=='failed'})
+    if job['state']!='succeeded':
+        raise ValueError(job.get('error') or job['state'])
+    checks = {c['itemId']:c for c in job['checks']}
+    conflicts = {c.get(key) for c in job.get('conflicts',[]) for key in ('itemId','otherId')}
+    blocked = {i['id'] for i in job['items'] if not checks.get(i['id'],{}).get('supported')
+               or checks[i['id']].get('issues') or i['id'] in conflicts}
+    blocked.update(link['itemId'] for link in job.get('links',[]) if link['conditionItemId'] in blocked)
+    ids = [i['id'] for i in job['items'] if i['id'] not in blocked]
+    if not ids:
+        raise ValueError('没有通过证据校验的切片')
+    did = job.get('documentId')
+    if not did:
+        did = stage.api('ingestionCommit',{'id':job['id'],'revision':job['revision'],'autoStore':True,'ids':ids})['document']['id']
+    doc = stage.api('document/'+did)
+    if doc.get('supersededBy') or doc.get('disabled'):
+        raise ValueError('资料版本已失效')
+    if doc['state']!='ready':
+        pending = [c['id'] for c in doc['chunks'] if c['state']=='pending']
+        if pending:
+            stage.api('confirm',{'ids':pending,'autoStore':True})
+        else:
+            stage.api('completeKnowledgeReview',{'id':did})
+        doc = stage.api('document/'+did)
+    if doc['state']!='ready':
+        raise ValueError('自动入库后回读未就绪')
+    return len(doc['chunks']),len(job['items'])-len(doc['chunks']),len(job.get('uncovered',[]))
+
+def store_parsed(stage,path):
+    files = stage.api('library')['files']
+    counts = collections.Counter()
+    report = path.with_name(path.stem+'-自动入库-'+str(time.time_ns())+'.csv')
+    with report.open('w',encoding='utf-8-sig',newline='') as stream:
+        writer = csv.writer(stream)
+        writer.writerow(['资料ID','资料名','结果','就绪切片','未入库条目','未覆盖原文块','原因'])
+        for f in files:
+            name = f.get('manifestName') or f['name']
+            state = f.get('conversionState') or ('done' if f.get('sha256') or f.get('isDocument') else 'pending')
+            count = omitted = gaps = 0
+            reason = ''
+            if state!='done':
+                status,reason = '跳过',state
+            else:
+                try:
+                    count,omitted,gaps = store_parsed_source(stage,f)
+                    status = '部分入库' if omitted or gaps else '已入库'
+                except urllib.error.HTTPError as err:
+                    if err.code in (401,403):
+                        raise
+                    reason = err.read(1000).decode(errors='replace')
+                    status = '跳过（待补正文）' if any(x in reason for x in ('需先导入网页正文','缺少可提取的正文')) else '失败'
+                except (ValueError,KeyError,OSError) as err:
+                    status,reason = '失败',str(err)
+            writer.writerow([f['id'],name,status,count,omitted,gaps,reason])
+            stream.flush()
+            counts[status] += 1
+            print(name,status,count,reason,flush=True)
+    print(dict(counts),'结果文件',report,flush=True)
+
 def retry_condition_group(stage, report):
     reason = '前置条件、限制或公式必须逐字引用当前证据'
     with report.open(encoding='utf-8-sig') as handle:
@@ -255,6 +330,7 @@ def main():
     parser.add_argument('zip',nargs='?',help='原始Markdown ZIP路径')
     parser.add_argument('--retry-conditions',action='store_true',help='用已有ID验证预算指南，再重跑相同错误资料')
     parser.add_argument('--sync-manifest',action='store_true',help='同步完整清单与写作用途')
+    parser.add_argument('--store-parsed',action='store_true',help='整理已解析资料，按证据校验结果自动入库')
     parser.add_argument('--sync-scopes',action='store_true',help='只按清单同步已有资料的使用范围')
     parser.add_argument('--background',action='store_true',help='登录后在后台继续处理')
     parser.add_argument('--preview',action='store_true',help='只核对文件匹配')
@@ -267,6 +343,12 @@ def main():
             fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError:
             raise SystemExit('同一ZIP已有后台导入在运行。')
+    if args.store_parsed:
+        stage=Stage()
+        stage.login()
+        if detach(path.with_suffix('.auto-store.log').resolve()):
+            store_parsed(stage,path)
+        return
     if args.retry_conditions:
         stage=Stage()
         stage.login()
