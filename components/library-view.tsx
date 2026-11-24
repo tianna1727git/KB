@@ -4,13 +4,14 @@ import {useEffect,useRef,useState} from 'react';
 import {SOURCE_FORMAT_LABELS,sourceFormatGroup,fileTimes} from '../lib/studio/library-metadata.mjs';
 import {USAGE_SCOPES,usageLabel} from '../lib/studio/usage-scope.mjs';
 import {useMaterialCategories} from './material-categories-context';
-import {LibraryStatusBadge,LibraryNameTooltip,LibraryRowActions} from './library-row-actions';
+import {knowledgeNames,LibraryStatusBadge,LibraryNameTooltip,LibraryRowActions} from './library-row-actions';
 import {LibraryFilterMenu,LibraryActiveFilters,LibraryFilterGroup} from './library-filter-menu';
 import {LIBRARY_COLUMNS,LibraryColumnSettings} from './library-column-settings';
 import {LibraryBatchCategoryDialog} from './library-batch-category-dialog';
 import {LibraryUploadDialog} from './library-upload-dialog';
 import {Download,ArrowLeft,FileText,RefreshCw,Upload,ChevronLeft,ChevronRight} from 'lucide-react';
 type FileRecord=Record<string,any>;
+const knowledgeState=(file:FileRecord)=>file.knowledgeState||(file.semantic?'done':'not_started');
 const formatFileTime=(value:string|null)=>value&&Number.isFinite(Date.parse(value))?new Date(value).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}):'—';
 async function request(path:string,body?:object){const r=await fetch('/api/studio/'+path,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});const j:any=await r.json();if(!r.ok)throw Error(j.error||'请求失败');return j;}
 function Markdown({text}:{text:string}){const lines=text.split(/\r\n|\r|\n/);const blocks:React.ReactNode[]=[];let code:string[]|null=null;let table:string[]=[];
@@ -19,6 +20,7 @@ function Markdown({text}:{text:string}){const lines=text.split(/\r\n|\r|\n/);con
  flush();if(code)blocks.push(<pre key="unfinished">{code.join('\n')}</pre>);return <article className="library-markdown">{blocks}</article>;}
 export function LibraryView({onOpenDocument,onChanged,onOrganize,onSettings}:{onSettings:()=>void;onOpenDocument:(id:string)=>void;onProcessMarkdown:(file:File)=>void;onChanged:()=>void;onOrganize:(ids:string[])=>Promise<void>}){
  const {options:categoryOptions,label:categoryLabel,matches:categoryMatches}=useMaterialCategories();
+ const [knowledgeFilter,setKnowledgeFilter]=useState('all');
  const [collection,setCollection]=useState('all');
  const [batchFiles,setBatchFiles]=useState<FileRecord[]|null>(null);
  const [visibleColumns,setVisibleColumns]=useState<string[]>(LIBRARY_COLUMNS.map(column=>column.key)),[columnsReady,setColumnsReady]=useState(false);
@@ -32,7 +34,7 @@ export function LibraryView({onOpenDocument,onChanged,onOrganize,onSettings}:{on
  const names:Record<string,string>={missing:'待补正文',pending:'待解析',running:'解析中',done:'解析完成',failed:'解析失败'};
  async function load(){let r=await request('library');if((r.seedCount||0)<r.total&&!lock.current){lock.current=true;try{for(let offset=0;offset<r.total;){const b=await request('libraryImport',{offset});offset=b.next;}r=await request('library');}finally{lock.current=false;}}if(alive.current){setFiles(r.files);setInitialLoad(false);}}
  useEffect(()=>{alive.current=true;load().catch(e=>setError(e.message));return()=>{alive.current=false;};},[]);
- useEffect(()=>{setPage(1);},[query,folder,format,status,category,usage,collection]);
+ useEffect(()=>{setPage(1);},[query,folder,format,status,category,usage,collection,knowledgeFilter]);
  useEffect(()=>{const running=files.filter(f=>state(f)==='running'||(state(f)==='failed'&&f.batchId&&/upload|waiting-file/.test(f.remoteState||'')&&!f.recoveryCheckedAt));if(!running.length&&!files.some(f=>f.knowledgeState==='running'))return;const timer=setInterval(async()=>{if(pollLock.current||busy)return;pollLock.current=true;try{for(const f of running)await request('libraryConvertPoll',{id:f.id});await load();if(selected&&!edit){const r=await request('library/'+selected.id);if(alive.current){setSelected(r);setMarkdown(r.markdown||'');setVersions((await request('libraryVersions/'+r.id)).versions);}}}catch(e:any){if(alive.current)setError(e.message);}finally{pollLock.current=false;}},6000);return()=>clearInterval(timer);},[files,busy,selected?.id,edit]);
  async function action(fn:()=>Promise<void>){setBusy(true);setError('');try{await fn();}catch(e:any){setError(e.message);}finally{setBusy(false);}}
  async function remove(ids:string[]){
@@ -54,11 +56,12 @@ export function LibraryView({onOpenDocument,onChanged,onOrganize,onSettings}:{on
  ...(hasManifest?[{key:'collection',label:'资料集',value:collection,onChange:setCollection,options:[{value:'manifest',label:'SharePoint清单'},{value:'all',label:'全部资料'}]}]:[]),
  {key:'format',label:'源文件格式',value:format,onChange:setFormat,options:[{value:'all',label:'全部格式'},...Object.entries(SOURCE_FORMAT_LABELS).filter(([value])=>files.some(f=>sourceFormatGroup(f)===value)).map(([value,label])=>({value,label}))]},
  {key:'status',label:'解析状态',value:status,onChange:setStatus,options:[{value:'all',label:'全部状态'},...Object.entries(names).map(([value,label])=>({value,label}))]},
+ {key:'knowledge',label:'知识整理状态',value:knowledgeFilter,onChange:setKnowledgeFilter,options:[{value:'all',label:'全部状态'},...Object.entries(knowledgeNames).map(([value,label])=>({value,label}))]},
  {key:'category',label:'资料分类',value:category,onChange:setCategory,options:[{value:'all',label:'全部分类'},...categoryOptions.map(n=>({value:n.value,label:n.path})),{value:'uncategorized',label:'未分类'}]},
  {key:'usage',label:'使用范围',value:usage,onChange:setUsage,options:[{value:'all',label:'全部使用范围'},...USAGE_SCOPES]},
  {key:'folder',label:'资料目录',value:folder,onChange:setFolder,options:[{value:'all',label:'全部目录'},...folders.map(value=>({value,label:value}))]}
  ];
- const filtered=files.filter(f=>(!hasManifest||collection==='all'||f.manifestOrder)&&(usage==='all'||(f.usageScope||'writing')===usage)&&(category==='all'||(category==='uncategorized'?!f.libraryCategory:categoryMatches(f.libraryCategory,category)))&&(folder==='all'||(f.path?.includes('/')?f.path.slice(0,f.path.lastIndexOf('/')):'根目录')===folder)&&(format==='all'||sourceFormatGroup(f)===format)&&(status==='all'||state(f)===status)&&String(f.manifestName||f.name||'').toLowerCase().includes(query.toLowerCase()));const pages=Math.max(1,Math.ceil(filtered.length/20)),current=Math.min(page,pages),visible=filtered.slice((current-1)*20,current*20);
+ const filtered=files.filter(f=>(!hasManifest||collection==='all'||f.manifestOrder)&&(usage==='all'||(f.usageScope||'writing')===usage)&&(category==='all'||(category==='uncategorized'?!f.libraryCategory:categoryMatches(f.libraryCategory,category)))&&(folder==='all'||(f.path?.includes('/')?f.path.slice(0,f.path.lastIndexOf('/')):'根目录')===folder)&&(format==='all'||sourceFormatGroup(f)===format)&&(status==='all'||state(f)===status)&&(knowledgeFilter==='all'||knowledgeState(f)===knowledgeFilter)&&String(f.manifestName||f.name||'').toLowerCase().includes(query.toLowerCase()));const pages=Math.max(1,Math.ceil(filtered.length/20)),current=Math.min(page,pages),visible=filtered.slice((current-1)*20,current*20);
  useEffect(()=>{if(selectAllRef.current)selectAllRef.current.indeterminate=visible.some(f=>checked.includes(f.id))&&!visible.every(f=>checked.includes(f.id));},[checked,visible]);
  const ready=files.filter(f=>checked.includes(f.id)&&state(f)==='done'&&!f.semantic);
  const renderFileCell=(f:FileRecord,key:string)=>{
@@ -70,7 +73,7 @@ export function LibraryView({onOpenDocument,onChanged,onOrganize,onSettings}:{on
  case 'uploaded':return formatFileTime(fileTimes(f).uploadedAt);
  case 'updated':return formatFileTime(fileTimes(f).contentUpdatedAt);
  case 'parsing':return <><LibraryStatusBadge state={state(f)}/>{f.conversionError&&<p className="library-status-error" title={f.conversionError}>{f.conversionError}</p>}</>;
- case 'knowledge':return <span title={f.knowledgeError||''}><LibraryStatusBadge kind="knowledge" state={f.knowledgeState||(f.semantic?'done':'not_started')}/></span>;
+ case 'knowledge':return <span title={f.knowledgeError||''}><LibraryStatusBadge kind="knowledge" state={knowledgeState(f)}/></span>;
  case 'actions':if(state(f)==='missing')return <div className="library-row-actions"><a href={f.manifestURL} target="_blank" rel="noreferrer">查看清单原件</a><button className="text-btn" disabled={busy} onClick={()=>remove([f.id])}>删除</button></div>;return <div className="library-row-actions"><button className="text-btn" disabled={busy} onClick={()=>open(f)}>查看解析结果</button><LibraryRowActions file={f} busy={busy} onDelete={()=>remove([f.id])} parsingDone={state(f)==='done'} download={download(f)} onCategorySaved={async()=>{await load();onChanged();setNotice('资料设置已更新');}} onOrganize={()=>{if(f.knowledgeState==='done'||f.semantic)onOpenDocument(f.knowledgeDocumentId||f.documentId||f.id);else action(()=>onOrganize([f.id]));}} onRetry={()=>convert([f.id])}/></div>;
  default:return null;
  }};

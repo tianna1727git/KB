@@ -6,7 +6,7 @@ import {LibraryUsageDialog} from './library-usage-dialog';
 import {LibraryCategoryFields} from './library-category-fields';
 type R=Record<string,any>;
 const names:R={missing:'待补正文',pending:'待解析',running:'解析中',done:'解析完成',failed:'解析失败'};
-const knowledgeNames:R={not_started:'未整理',waiting:'待处理',running:'整理中',review:'待保存',done:'已整理',failed:'整理失败',stale:'待重新整理'};
+export const knowledgeNames:Record<string,string>={not_started:'未整理',waiting:'待处理',running:'整理中',review:'待保存',done:'已整理',failed:'整理失败',stale:'待重新整理'};
 export function LibraryStatusBadge({state,kind='parsing'}:{state:string;kind?:'parsing'|'knowledge'}){const labels=kind==='knowledge'?knowledgeNames:names;const color=state==='done'?'success':state==='failed'?'danger':state==='running'?'info':['waiting','review','stale'].includes(state)?'warning':'neutral';const Icon=state==='done'?CheckCircle2:state==='failed'?AlertCircle:state==='running'?LoaderCircle:Clock;return <span className={'library-status-badge '+color}><Icon size={13} className={state==='running'?'spin':undefined}/>{labels[state]||'未知状态'}</span>;}
 export function LibraryNameTooltip({name,children}:{name:string;children:React.ReactNode}){return <Tooltip.Provider delayDuration={250}><Tooltip.Root><Tooltip.Trigger asChild>{children}</Tooltip.Trigger><Tooltip.Portal><Tooltip.Content className="library-name-tooltip" side="top" sideOffset={8}>{name}<Tooltip.Arrow/></Tooltip.Content></Tooltip.Portal></Tooltip.Root></Tooltip.Provider>;}
 export function LibraryRowActions({file,busy,parsingDone,onCategorySaved,onOrganize,onRetry,onDelete,download}:{file:R;busy:boolean;parsingDone:boolean;onCategorySaved:()=>Promise<void>;onOrganize:()=>void;onRetry:()=>void;onDelete:()=>void;download:string}){
