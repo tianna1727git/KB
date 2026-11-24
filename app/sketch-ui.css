@@ -649,6 +649,7 @@ body:has(.geo-dialog[open]) { overflow:hidden; }
   flex-wrap: wrap !important;
 }
 .library-list-panel .library-row-actions > :is(button,a) {
+  font-weight: 400;
   padding: .35rem .15rem;
   min-width: 0;
 }
