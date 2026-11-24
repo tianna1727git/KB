@@ -1,3 +1,4 @@
+import {deleteLibraryRows} from './library-delete.mjs';
 import {importManifestEntry} from './sharepoint-manifest.mjs';
 import {rulesAPI as agentRulesAPI} from './agent-rule-store.mjs';
 import {researchPolicy} from './research-guide.mjs';
@@ -47,7 +48,7 @@ export async function api(req:Request,env:any){try{
  if(req.method!=='GET'){const origin=req.headers.get('origin');if(origin&&origin!==new URL(req.url).origin)fail('不允许跨站请求',403);}
  async function list(kind:string){const r=await env.DB.prepare('SELECT * FROM studio_records WHERE owner=? AND kind=? ORDER BY created DESC').bind(uid,kind).all();return r.results.map(parse).map((v:R)=>kind==='chunk'?{...classifyKnowledge(v.body,v.title),...v}:v);}
  function parse(r:any){return applyReferenceCategory({...JSON.parse(r.payload),id:r.id,kind:r.kind,state:r.state,owner:r.owner,revision:r.revision,created:r.created,updated:r.updated});}
- async function get(rid:string,kind?:string){const r=await env.DB.prepare('SELECT * FROM studio_records WHERE id=? AND owner=?').bind(rid,uid).first();if(!r||kind&&r.kind!==kind)fail('记录不存在或无权访问',404);return parse(r);}
+ async function get(rid:string,kind?:string){const r=await env.DB.prepare('SELECT * FROM studio_records WHERE id=? AND owner=?').bind(rid,uid).first();if(!r||r.kind.startsWith('deleted-')||kind&&r.kind!==kind)fail('记录不存在或无权访问',404);return parse(r);}
  async function create(kind:string,p:R,state='draft'){const rid=id(),t=now();if(kind==='library')p={...p,uploadedAt:t,contentUpdatedAt:t};await env.DB.prepare('INSERT INTO studio_records(id,kind,owner,state,revision,payload,created,updated) VALUES(?,?,?,?,1,?,?,?)').bind(rid,kind,uid,state,JSON.stringify(p),t,t).run();return get(rid);}
  async function save(r:R,p:R,state=r.state){const res=await env.DB.prepare('UPDATE studio_records SET payload=?,state=?,revision=revision+1,updated=? WHERE id=? AND owner=? AND revision=?').bind(JSON.stringify({...r,...p}),state,now(),r.id,uid,r.revision).run();if(res.meta.changes!==1)fail('内容已更新，请刷新后重试',409);return get(r.id);}
  async function categoryMetadata(source:R){const linked=source.kind==='document'?((await list('library')).find((f:R)=>f.id===source.libraryId)||(await list('library')).find((f:R)=>f.sha256===source.hash)):source;const sourceId=linked?.id||source.id;try{const metadata=await get('library-metadata:'+uid+':'+sourceId,'libraryMetadata');return {libraryCategory:metadata.libraryCategory,categoryRevision:metadata.revision,...sourceUsage(linked||source,(await list('libraryUsage')).find((m:R)=>m.sourceId===sourceId))};}catch(e:any){if(e.code!==404)throw e;return {categoryRevision:0,...sourceUsage(linked||source,(await list('libraryUsage')).find((m:R)=>m.sourceId===sourceId))};}}
@@ -118,7 +119,7 @@ export async function api(req:Request,env:any){try{
  const entries=await list('sharepointEntry');
  const bySource=new Map(entries.map((entry:R)=>[entry.sourceId,entry]));
  for(const f of files){const entry:any=bySource.get(f.id)||bySource.get(f.libraryId);if(entry){f.manifestName=entry.name;f.manifestOrder=entry.order;f.manifestURL=entry.url;if(entry.needsOriginal)f.conversionState='missing';}}
- return json({files,total:email.toLowerCase()==='tianna1727@gmail.com'?libraryFiles.length:0,seedCount:stored.filter((f:R)=>f.collection==='ProductMarketingChina').length});
+ return json({files,total:email.toLowerCase()==='tianna1727@gmail.com'?libraryFiles.length:0,seedCount:stored.filter((f:R)=>f.collection==='ProductMarketingChina').length+(email.toLowerCase()==='tianna1727@gmail.com'?Number(await env.DB.prepare("SELECT COUNT(*) FROM studio_records WHERE owner=? AND kind='deleted-library' AND json_extract(payload,'$.collection')='ProductMarketingChina'").bind(uid).first('COUNT(*)')):0)});
  }
  const record=await get(path[1],'library'),f={...record,...await categoryMetadata(record)};
  if(path[2]==='original'||path[2]==='result'){const key=path[2]==='result'?f.artifactKey:f.originalKey;if(!key)fail('文件不存在',404);const original=await env.BUCKET.get(key);if(!original)fail('文件不存在',404);return new Response(original.body,{headers:{'Content-Type':path[2]==='result'?'application/zip':'application/octet-stream','Content-Disposition':"attachment; filename*=UTF-8''"+encodeURIComponent(path[2]==='result'?'MinerU-result.zip':f.originalName),'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});}
@@ -213,6 +214,7 @@ export async function api(req:Request,env:any){try{
  return json({added,next:Math.min(offset+10,libraryFiles.length),total:libraryFiles.length});
  }
 
+ if(action==='libraryDelete')return json(await deleteLibraryRows(b.ids,{uid,env,list,fail}));
  if(action==='sharepointManifestEntry')return json(await importManifestEntry(b,env,{uid,get,fail}));
  if(action==='mergeChunk'){
  const k=await get(b.id,'chunk');if(k.state!=='pending'||k.revision!==b.revision)fail('只能合并当前待确认版本');const all=(await list('chunk')).filter((x:R)=>x.docId===k.docId&&x.state!=='excluded').sort((a:R,b:R)=>a.order-b.order),next=all[all.findIndex((x:R)=>x.id===k.id)+1];if(!next||next.state!=='pending'||k.end!==next.start)fail('下一条不存在、已确认或来源不连续');const d=await get(k.docId,'document');const originalBody=d.markdown.slice(k.start,next.end),body=!k.edited&&!next.edited?originalBody:k.body+next.body;

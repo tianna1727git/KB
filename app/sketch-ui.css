@@ -581,3 +581,53 @@ body:has(.geo-dialog[open]) { overflow:hidden; }
 .brewing-compact .brewing-band { width: min(9rem, 80%); margin-bottom: .5rem; }
 .brewing-compact .brewing-title { width: min(16rem, 100%); }
 .brewing-compact p { margin-top: .3rem; }
+
+/* Use the platform UI typeface for list screens and list controls in portals. */
+:is(.pencil-shell[data-view="library"], .pencil-shell[data-view="knowledge"],
+    .pencil-shell[data-view="content"], .pencil-shell[data-view="offline"],
+    .pencil-shell[data-view="seo"], .pencil-shell main table,
+    .pencil-shell main :is(.persona-list,.agent-cards,.insights-source-list,.insight-articles,.saved-research-list,.article-batch-list,.seo-history,.draft-version-list),
+    .library-row-menu,.library-name-tooltip,.library-column-menu,.library-category-dialog) {
+  --workspace-font: system-ui, sans-serif;
+  font-family: var(--workspace-font);
+}
+.pencil-shell main .library-records-table .library-file.text-btn {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none;
+  padding-inline: 0;
+}
+.library-file:hover b, .library-file:focus-visible b {
+  text-decoration: underline wavy;
+  text-decoration-thickness: 1px;
+  text-underline-offset: .22em;
+}
+.pencil-shell main .library-list-panel .search-box {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  padding-inline: .8rem;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--paper) url('/pencil/outline.svg') center / 100% 100% no-repeat;
+}
+.pencil-shell main .library-list-panel .search-box:focus-within {
+  background-image: url('/pencil/outline-focus.svg');
+}
+.pencil-shell main .library-list-panel .search-box input:not([type="checkbox"]):not([type="radio"]),
+.pencil-shell main .library-list-panel .search-box input:focus-visible {
+  background: transparent !important;
+  min-width: 0;
+  flex: 1;
+  padding-inline: 0;
+}
+.library-tools .search-box img { flex: none; }
+.library-tools button, .library-selection-bar button, .library-row-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+}
+.library-tools button svg, .library-row-menu-item svg { filter: url(#payo-pencil-wobble); }

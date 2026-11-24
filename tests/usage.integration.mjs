@@ -32,5 +32,16 @@ try{
  const envelope=packet.data.package.resultTemplate;mock.get('https://www.payoneer.com').intercept({path:'/receiving',method:'GET'}).reply(200,'<title>官方产品说明</title><p>'+quote+'</p>',{headers:{'content-type':'text/html'}});
  const imported=await req('handoffImport',{...envelope,reviewed:true,result:{title:'本地收款指南',intent:'解释服务',queries:['本地收款'],outline:'## 账户\n'+quote+'[S1]',missing:[],publicReferences:[{url,quote,referenceId:'public-chunk',materialIds:['private-chunk'],authorityReason:'官方网站说明支撑相同服务与适用条件'}]}});assert.equal(imported.status,200,JSON.stringify(imported));assert.equal(imported.data.record.evidence.length,1);assert.equal(imported.data.record.evidence[0].usageScope,'reference');assert.equal(imported.data.record.evidence[0].title,'官方产品说明');assert.equal(imported.data.record.materials[0].usageScope,'writing');assert.equal(imported.data.record.referenceMappings[0].materialId,'private-chunk');
  task=(await req('task/'+task.id)).data;assert.deepEqual(task.stale,[]);await req('libraryUsageUpdate',{id:target,usageScope:'writing',usageRevision:1});task=(await req('task/'+task.id)).data;assert.ok(task.stale.includes('S1'));assert.equal((await req('approveOutline',{id:task.id,revision:task.revision})).status,409);
+ const remove={ids:['internal','standalone']};
+ assert.equal((await req('libraryDelete',remove,'another-user')).status,409);
+ assert.equal((await req('libraryDelete',{ids:['internal','missing']})).status,409);
+ assert.equal((await req('library/internal')).status,200);
+ await insert('same-hash','library',{name:'同正文的独立资料.md',sha256:'private-hash',conversionState:'done'});
+ assert.equal((await req('libraryDelete',remove)).data.deleted,2);
+ const remaining=(await req('library')).data.files.map(f=>f.id);
+ assert.ok(remaining.includes('same-hash')&&remaining.includes(target));
+ assert.ok(!remaining.includes('internal')&&!remaining.includes('standalone'));
+ assert.equal((await req('knowledgeItem/private-chunk')).status,404);
+ assert.equal((await req('knowledgeItem/public-chunk')).status,200);
  console.log('PASS: one-reference migration, alias inheritance, preserved source/chunk data, auth/CSRF/conflicts, isolated reference settings, required upload scope, internal material selection, public quote verification, citation mapping and usage-change invalidation. No model calls.');
 }finally{await mf.dispose();await mock.close();}
