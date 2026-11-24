@@ -32,8 +32,8 @@ export function KnowledgeSearch({categories,onDetail,onSource,refreshKey=0}:{cat
   <header className="knowledge-discovery-header">
    <h2 id="knowledge-search-title">知识检索</h2>
    <form className="knowledge-query" role="search" onSubmit={event=>{event.preventDefault();submit();}}>
-    <Search size={21} aria-hidden="true"/><input ref={inputRef} aria-label="知识检索关键词" placeholder="输入关键词" maxLength={500} value={input} onChange={event=>setInput(event.target.value)}/>
-    {input&&<button type="button" className="knowledge-input-clear" aria-label="清空关键词" onClick={clear}><X size={16}/></button>}
+    <div className="content-keyword"><img className="content-search-icon" src="/pencil/seo.svg" width="26" height="26" alt=""/><input ref={inputRef} aria-label="知识检索关键词" placeholder="输入关键词" maxLength={500} value={input} onChange={event=>setInput(event.target.value)}/>
+    {input&&<button type="button" className="text-btn knowledge-input-clear" aria-label="清空关键词" onClick={clear}><X size={16}/></button>}</div>
     <button type="submit" className="primary" disabled={!input.trim()||loading}>{loading?<LoaderCircle size={17} className="spin"/>:<Search size={17}/>}搜索</button>
    </form>
    <p className="knowledge-search-hint">从来源资料中查找知识、操作步骤与适用条件</p>
@@ -42,9 +42,9 @@ export function KnowledgeSearch({categories,onDetail,onSource,refreshKey=0}:{cat
    <aside className="knowledge-facets" aria-label="资料分类">
     <div className="knowledge-facets-heading"><h3>资料分类</h3><button className="knowledge-mobile-filter" aria-label="展开或收起资料分类" aria-expanded={filtersOpen} onClick={()=>setFiltersOpen(value=>!value)}><SlidersHorizontal size={15}/>{filtersOpen?'收起':'筛选'}</button></div>
     <div className={'knowledge-facet-list'+(filtersOpen?' is-open':'')}>
-     <button className={category==='all'?'active':''} aria-pressed={category==='all'} onClick={()=>chooseCategory('all')}><span>全部分类</span><b>{loading?'—':totalCategories}</b></button>
+     <button className={category==='all'?'text-btn active':'text-btn'} aria-pressed={category==='all'} onClick={()=>chooseCategory('all')}><span>全部分类</span><b>{loading?'—':totalCategories}</b></button>
      <MaterialCategoryTree nodes={categoryConfig.nodes} value={category} counts={counts} onSelect={chooseCategory} loading={loading}/>
-     {facets.filter((item:R)=>!categoryConfig.nodes.some(n=>n.value===item.name)).map((item:R)=><button key={item.name} className={category===item.name?'active':''} onClick={()=>chooseCategory(item.name)}><span>{item.name}</span><b>{item.count}</b></button>)}
+     {facets.filter((item:R)=>!categoryConfig.nodes.some(n=>n.value===item.name)).map((item:R)=><button key={item.name} className={category===item.name?'text-btn active':'text-btn'} onClick={()=>chooseCategory(item.name)}><span>{item.name}</span><b>{item.count}</b></button>)}
      <small>沿用资料库分类<br/>数量为知识条目数</small>
     </div>
    </aside>

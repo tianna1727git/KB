@@ -662,3 +662,29 @@ body:has(.geo-dialog[open]) { overflow:hidden; }
 .pencil-shell main .saved-research-list {
   background: transparent !important;
 }
+
+.pencil-shell main .knowledge-query {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+.pencil-shell main .knowledge-query .content-keyword {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+}
+.pencil-shell main .knowledge-query .content-keyword input {
+  padding-right: 40px;
+}
+.knowledge-query .knowledge-input-clear.text-btn {
+  position: absolute;
+  right: 9px;
+}
+.pencil-shell main .knowledge-facet-list .active > span,
+.pencil-shell main .material-tree-row.selected .material-tree-label > span {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
