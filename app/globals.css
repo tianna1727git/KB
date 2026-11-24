@@ -111,9 +111,9 @@
 /* Guided, resumable Insights research */
 .content-input-row{display:grid;grid-template-columns:minmax(0,2fr) minmax(240px,1fr);gap:14px;align-items:center}
 .content-persona-target input{width:100%;min-width:0}
-.saved-research-list{margin:14px 0;padding:18px 22px;border:1px solid var(--border);border-radius:12px;background:#fff}
+.saved-research-list{margin:14px 0;padding:18px 22px}
 .saved-research-list>header,.saved-research-list>button{display:flex;align-items:center;justify-content:space-between;gap:14px}
-.saved-research-list>button{width:100%;padding:14px 4px;border:0;border-top:1px solid var(--border);background:transparent;text-align:left}
+.saved-research-list>button{width:100%;padding:14px 4px;border:0;background:transparent;text-align:left}
 .saved-research-list>button span,.saved-research-list>button small{display:block}
 .saved-research-list>button small,.saved-research-list>p{margin-top:6px;color:var(--muted)}
 .collected-article-browser,.guided-research{margin:20px 0;padding:22px;border:1px solid var(--border);border-radius:14px;background:#fbf9fd}

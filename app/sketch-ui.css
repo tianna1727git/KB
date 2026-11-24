@@ -658,3 +658,7 @@ body:has(.geo-dialog[open]) { overflow:hidden; }
   text-decoration: underline wavy;
   text-underline-offset: .22em;
 }
+
+.pencil-shell main .saved-research-list {
+  background: transparent !important;
+}
