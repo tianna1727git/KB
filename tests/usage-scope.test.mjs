@@ -40,6 +40,6 @@ test('SharePoint scopes propagate to chunks and limit writing without granting c
   const [chunk]=inheritUsage([{id:'c',docId:'d',docRevision:1,state:'approved'}],docs);
   assert.equal(chunk.usageLabel,label);
   assert.equal(chunk.canCite,false);
-  assert.equal(canUse(chunk,docs),['public-share','targeted-share'].includes(value));
+  assert.equal(canUse(chunk,docs),value!=='internal');
  }
 });

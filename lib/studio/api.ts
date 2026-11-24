@@ -1,3 +1,4 @@
+import {importManifestEntry} from './sharepoint-manifest.mjs';
 import {rulesAPI as agentRulesAPI} from './agent-rule-store.mjs';
 import {researchPolicy} from './research-guide.mjs';
 import {seoKeywordsAPI} from './seo-keywords-api';
@@ -114,6 +115,9 @@ export async function api(req:Request,env:any){try{
  const [stored,documents,versions,metadata,jobs,usage]=await Promise.all([list('library'),docs(),list('libraryVersion'),list('libraryMetadata'),list('ingestion'),list('libraryUsage')]);
  const enrich=(file:R,source=file)=>{const category=metadata.find((m:R)=>m.sourceId===source.id)||metadata.find((m:R)=>m.sourceId===file.id);return {...file,...sourceUsage(source,usage.find((m:R)=>m.sourceId===source.id)),...fileTimes(source,versions),...(category?{libraryCategory:category.libraryCategory}:{}),categoryRevision:category?.revision||0,...knowledgeSummary(file,documents,jobs)};};
  const files=[...stored.filter((f:R)=>f.conversionState||!documents.some((d:R)=>d.hash===f.sha256)).map(({fileKey,...f}:R)=>enrich({...f,semantic:documents.some((d:R)=>d.hash===f.sha256&&d.semantic&&!d.supersededBy),documentId:documents.find((d:R)=>d.hash===f.sha256&&d.semantic&&!d.supersededBy)?.id})),...documents.filter((d:R)=>!stored.some((f:R)=>f.conversionState&&(f.id===d.libraryId||f.sha256===d.hash))).map((d:R)=>{const source=stored.find((f:R)=>f.id===d.libraryId)||stored.find((f:R)=>f.sha256===d.hash)||d;return enrich({...d,sourceFormat:d.sourceFormat||source.sourceFormat||source.format,libraryCategory:d.libraryCategory||source.libraryCategory,path:d.name,title:d.name.replace(/\.(md|markdown)$/i,''),size:new TextEncoder().encode(d.markdown).length,isDocument:true},source);})];
+ const entries=await list('sharepointEntry');
+ const bySource=new Map(entries.map((entry:R)=>[entry.sourceId,entry]));
+ for(const f of files){const entry:any=bySource.get(f.id)||bySource.get(f.libraryId);if(entry){f.manifestName=entry.name;f.manifestOrder=entry.order;f.manifestURL=entry.url;if(entry.needsOriginal)f.conversionState='missing';}}
  return json({files,total:email.toLowerCase()==='tianna1727@gmail.com'?libraryFiles.length:0,seedCount:stored.filter((f:R)=>f.collection==='ProductMarketingChina').length});
  }
  const record=await get(path[1],'library'),f={...record,...await categoryMetadata(record)};
@@ -209,6 +213,7 @@ export async function api(req:Request,env:any){try{
  return json({added,next:Math.min(offset+10,libraryFiles.length),total:libraryFiles.length});
  }
 
+ if(action==='sharepointManifestEntry')return json(await importManifestEntry(b,env,{uid,get,fail}));
  if(action==='mergeChunk'){
  const k=await get(b.id,'chunk');if(k.state!=='pending'||k.revision!==b.revision)fail('只能合并当前待确认版本');const all=(await list('chunk')).filter((x:R)=>x.docId===k.docId&&x.state!=='excluded').sort((a:R,b:R)=>a.order-b.order),next=all[all.findIndex((x:R)=>x.id===k.id)+1];if(!next||next.state!=='pending'||k.end!==next.start)fail('下一条不存在、已确认或来源不连续');const d=await get(k.docId,'document');const originalBody=d.markdown.slice(k.start,next.end),body=!k.edited&&!next.edited?originalBody:k.body+next.body;
  const merged=await create('chunk',{...k,title:next.title,body,originalBody,start:k.start,end:next.end,heading:next.heading,risks:[...new Set([...k.risks,...next.risks,'人工合并，请核对主题及条件完整性'])]},'pending');await save(k,{supersededBy:merged.id},'excluded');await save(next,{supersededBy:merged.id},'excluded');return json({id:merged.id});}

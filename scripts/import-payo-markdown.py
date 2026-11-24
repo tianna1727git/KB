@@ -33,7 +33,7 @@ def read_manifest(path):
         fields=[v.strip() for v in re.split(r'(?<!\\)\|',line.strip('|'))]
         if len(fields)!=10 or fields[4] not in SCOPES:
             raise ValueError('清单字段或分享权限无法识别')
-        rows.append({'原文件名称':fields[1],'原始分享权限':fields[4],'形式':fields[3]})
+        rows.append({'原文件名称':fields[1],'原始分享权限':fields[4],'形式':fields[3],'url':fields[9].removeprefix('[打开](').removesuffix(')')})
     if not rows:
         raise ValueError('清单中没有资料行')
     return rows
@@ -94,6 +94,44 @@ class Stage:
         if f.get('conversionState')=='failed' or not f.get('markdown','').strip():
             raise ValueError('资料已提交但未获得可整理正文，请查看资料列表')
         return f
+
+def sync_manifest(stage, rows, archive, matches):
+    urls = {row['url'] for row in rows}
+    if len(rows) != 205 or len(urls) != 205 or any(not url.startswith('https://payoneerinc.sharepoint.com/teams/ProductMarketingChina/') for url in urls):
+        raise ValueError('清单应包含205个唯一的SharePoint原件链接')
+    files = stage.api('library')['files']
+    available = {n['value'] for n in stage.api('materialCategories')['nodes']}
+    for index, row in enumerate(rows):
+        hits = matches[index]
+        payload = {'order':index+1, 'name':row['原文件名称'], 'url':row['url'],
+                   'category':site_category(row.get('category'), available) or '',
+                   'scope':SCOPES[row['原始分享权限']]}
+        if len(hits) == 1:
+            raw = archive.read(hits[0])
+            name = member_path(hits[0]).name
+            body = raw.decode('utf-8-sig')
+            hashes = {hashlib.sha256(data).hexdigest() for data in (raw, body.encode())}
+            existing = [f for f in files if f['name']==name and hashes.intersection(
+                        [f.get('sha256'), f.get('hash'), f.get('originalHash')])]
+            ids = {f.get('libraryId') or f['id'] for f in existing if not f.get('isDocument') or f.get('libraryId')}
+            if len(ids) > 1:
+                raise ValueError('正文匹配多个资料ID：'+name)
+            if ids:
+                payload['sourceId'] = ids.pop()
+            payload.update(markdown=body, markdownName=name, originalHash=hashlib.sha256(raw).hexdigest())
+            if not re.sub(r'!\[[^\]]*\]\([^\n]*?\)|^\s*#.*$', '', body, flags=re.M).strip():
+                payload['needsOriginal'] = True
+        stage.api('sharepointManifestEntry',payload)
+    linked = [f for f in stage.api('library')['files'] if f.get('manifestURL')]
+    by_url = {f['manifestURL']:f for f in linked}
+    if len(linked)!=205 or set(by_url)!=urls:
+        raise ValueError('回读清单数量或链接不一致，请核对资料列表')
+    for row in rows:
+        f = by_url[row['url']]
+        scope = SCOPES[row['原始分享权限']]
+        if f['usageScope']!=scope or f['writingMaterial']!=(scope!='internal'):
+            raise ValueError('分类或写作用途回读不一致：'+row['原文件名称'])
+    print('已逐份核验205条清单记录。写作素材',sum(f['writingMaterial'] for f in linked),'份。')
 
 def sync_scopes(stage, rows, archive, matches):
     targets = {}
@@ -216,6 +254,7 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('zip',nargs='?',help='原始Markdown ZIP路径')
     parser.add_argument('--retry-conditions',action='store_true',help='用已有ID验证预算指南，再重跑相同错误资料')
+    parser.add_argument('--sync-manifest',action='store_true',help='同步完整清单与写作用途')
     parser.add_argument('--sync-scopes',action='store_true',help='只按清单同步已有资料的使用范围')
     parser.add_argument('--background',action='store_true',help='登录后在后台继续处理')
     parser.add_argument('--preview',action='store_true',help='只核对文件匹配')
@@ -247,6 +286,9 @@ def main():
         categories=set()
         if not args.preview:
             stage.login()
+            if args.sync_manifest:
+                sync_manifest(stage,rows,archive,matches)
+                return
             if args.sync_scopes:
                 sync_scopes(stage,rows,archive,matches)
                 return
