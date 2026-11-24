@@ -26,3 +26,12 @@ test('budget guide maps condition fields back to the selected Markdown evidence'
  raw.items[0].organization.prerequisites=[data.organizationExcerpts.find(v=>v.anchorId!==q.anchorId).id];
  assert.throws(()=>req.hydrate(raw),/未绑定当前切片/);
 });
+
+test('link request derives the condition from its evidence and rejects mixed owners',()=>{
+ const items=['K1','K2','K3'].map(id=>({id,evidence:[{blockId:'B1',quote:id}]}));
+ const request=apiEvidenceRequest('link',{items});
+ assert.ok(!request.schema.properties.links.items.required.includes('conditionItemId'));
+ const link={itemId:'K1',reason:'主体限制',evidence:[{anchorId:'C-K2-E1'}]};
+ assert.equal(request.hydrate({links:[link]}).links[0].conditionItemId,'K2');
+ assert.throws(()=>request.hydrate({links:[{...link,evidence:[...link.evidence,{anchorId:'C-K3-E1'}]}]}));
+});
