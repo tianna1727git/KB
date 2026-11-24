@@ -30,7 +30,14 @@ test('budget guide maps condition fields back to the selected Markdown evidence'
 test('link request derives the condition from its evidence and rejects mixed owners',()=>{
  const items=['K1','K2','K3'].map(id=>({id,evidence:[{blockId:'B1',quote:id}]}));
  const request=apiEvidenceRequest('link',{items});
- assert.ok(!request.schema.properties.links.items.required.includes('conditionItemId'));
+ const branches=request.schema.properties.links.items.anyOf;
+ assert.equal(branches.length,items.length);
+ for(const branch of branches){
+  const anchors=branch.properties.evidence.items.properties.anchorId.enum;
+  assert.equal(anchors.length,1);
+  const owner=items.find(item=>anchors[0]==='C-'+item.id+'-E1');
+  assert.deepEqual(branch.properties.itemId.enum,items.filter(i=>i!==owner).map(i=>i.id));
+ }
  const link={itemId:'K1',reason:'主体限制',evidence:[{anchorId:'C-K2-E1'}]};
  assert.equal(request.hydrate({links:[link]}).links[0].conditionItemId,'K2');
  assert.throws(()=>request.hydrate({links:[{...link,evidence:[...link.evidence,{anchorId:'C-K3-E1'}]}]}));

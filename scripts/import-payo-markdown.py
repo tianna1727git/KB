@@ -234,8 +234,11 @@ def store_parsed_source(stage, file):
         raise ValueError('自动入库后回读未就绪')
     return len(doc['chunks']),len(job['items'])-len(doc['chunks']),len(job.get('uncovered',[]))
 
-def store_parsed(stage,path):
+def store_parsed(stage,path,failed_only=False):
     files = stage.api('library')['files']
+    if failed_only:
+        files = [f for f in files if f.get('knowledgeState') == 'failed']
+        print(f'当前资料库有{len(files)}份整理失败，按现有分类继续处理。', flush=True)
     counts = collections.Counter()
     report = path.with_name(path.stem+'-自动入库-'+str(time.time_ns())+'.csv')
     with report.open('w',encoding='utf-8-sig',newline='') as stream:
@@ -330,6 +333,7 @@ def main():
     parser.add_argument('zip',nargs='?',help='原始Markdown ZIP路径')
     parser.add_argument('--retry-conditions',action='store_true',help='用已有ID验证预算指南，再重跑相同错误资料')
     parser.add_argument('--sync-manifest',action='store_true',help='同步完整清单与写作用途')
+    parser.add_argument('--retry-failed',action='store_true',help='仅重跑当前资料库中整理失败的资料并回读入库结果')
     parser.add_argument('--store-parsed',action='store_true',help='整理已解析资料，按证据校验结果自动入库')
     parser.add_argument('--sync-scopes',action='store_true',help='只按清单同步已有资料的使用范围')
     parser.add_argument('--background',action='store_true',help='登录后在后台继续处理')
@@ -343,11 +347,11 @@ def main():
             fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError:
             raise SystemExit('同一ZIP已有后台导入在运行。')
-    if args.store_parsed:
+    if args.store_parsed or args.retry_failed:
         stage=Stage()
         stage.login()
         if detach(path.with_suffix('.auto-store.log').resolve()):
-            store_parsed(stage,path)
+            store_parsed(stage,path,failed_only=args.retry_failed)
         return
     if args.retry_conditions:
         stage=Stage()
