@@ -631,3 +631,29 @@ body:has(.geo-dialog[open]) { overflow:hidden; }
   gap: .4rem;
 }
 .library-tools button svg, .library-row-menu-item svg { filter: url(#payo-pencil-wobble); }
+
+.pencil-shell main .library-list-panel .library-tools :is(.library-filter-trigger,.library-column-settings),
+.pencil-shell main .library-list-panel .library-row-actions :is(button,a) {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none;
+}
+.library-list-panel .library-tools button:is(.library-filter-trigger,.library-column-settings) {
+  width: 40px;
+  height: 42px;
+  padding: 0;
+}
+.library-list-panel .library-row-actions {
+  gap: .5rem;
+  flex-wrap: wrap !important;
+}
+.library-list-panel .library-row-actions > :is(button,a) {
+  padding: .35rem .15rem;
+  min-width: 0;
+}
+.library-list-panel .library-row-actions .text-btn:hover,
+.library-list-panel .library-row-actions a:hover {
+  text-decoration: underline wavy;
+  text-underline-offset: .22em;
+}
